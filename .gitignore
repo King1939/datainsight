@@ -1,0 +1,12 @@
+.env
+data/model.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+trace*.json
+output/*.png
+data/uploads/
+.DS_Store
+data/vault/
+data/chats/
