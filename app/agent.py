@@ -11,8 +11,10 @@ from __future__ import annotations
 import inspect
 from typing import Any, Callable
 
-from .config import MAX_STEPS, TABLE_NAME, TOKEN_BUDGET
+from . import config, images
+from .config import IMAGE_MAX_PER_TURN, MAX_STEPS, TABLE_NAME, TOKEN_BUDGET
 from .llm import LLMCallable, LLMError, LLMResponse, chat, normalize_assistant
+from .query_rewrite import QueryRewriter, build_context, format_for_agent
 from .session import Session
 from .tools import ToolRegistry, data_tools, registry as default_registry
 
@@ -39,30 +41,76 @@ def _takes_on_delta(callable_: Callable[..., Any]) -> bool:
     return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values())
 
 
+_VISION_ERROR_HINTS = (
+    "image_url",
+    "image",
+    "vision",
+    "multimodal",
+    "expected a string",
+    "unknown variant",
+    "invalid type",
+    "content",
+    "media",
+)
+
+
+def _is_multimodal_rejection(exc: LLMError) -> bool:
+    """判断异常是否因为当前模型不支持 OpenAI image_url 多模态消息。"""
+    if exc.status in (400, 415, 422):
+        return True
+    msg = f"{exc} {exc.detail}".lower()
+    return any(hint in msg for hint in _VISION_ERROR_HINTS)
+
+
+def _build_request_messages(
+    session_messages: list[dict[str, Any]],
+    *,
+    user_idx: int,
+    question: str,
+    packaged_question: str,
+    step_attachments: dict[int, list[images.DocImage]],
+) -> list[dict[str, Any]]:
+    """构造本步发给模型的浅拷贝消息列表（绝不改动 session.messages 本身）。"""
+    if packaged_question == question and not step_attachments:
+        return session_messages
+
+    request_messages = list(session_messages)
+    if packaged_question != question:
+        request_messages[user_idx] = {"role": "user", "content": packaged_question}
+
+    for pos in sorted(step_attachments, reverse=True):
+        imgs = step_attachments[pos]
+        if not imgs:
+            continue
+        names = "、".join(
+            f"{img.name}（{img.location}）" if img.location else img.name
+            for img in imgs
+        )
+        parts: list[dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": f"以下是读取文件时附带的 {len(imgs)} 张图片（{names}），请结合上下文内容一并分析：",
+            }
+        ]
+        parts.extend(img.to_content_part() for img in imgs)
+        request_messages.insert(pos, {"role": "user", "content": parts})
+
+    return request_messages
+
+
 def make_system_prompt(
     columns: list[str] | None = None,
     rows: int | None = None,
     label: str = "上传的数据",
     files: list[dict[str, Any]] | None = None,
     write_mode: bool = False,
+    web_search: bool = False,
 ) -> str:
-    """按当前数据表、资料文件和文件权限模式生成 system prompt。
-
-    第 2~3 周这里写死"电商订单表"，因为数据只有一份。接上上传功能后，
-    那句话在别人传进来的表上就是**错误信息**——模型会按订单表的思路去猜列名。
-    所以字段描述必须跟着数据集走。
-
-    第 5 周多了 files：资料不是表，能用的工具也不一样（read_document 而不是 SQL）。
-    两种能力要分开写，而且**没有的那块一个字都不要提**——prompt 里出现一个不存在的表，
-    模型就会去调 run_sql，然后收到一串报错，白烧两三步。
-
-    最后多了 write_mode：只读模式下不许提"能改文件"，否则模型会一路撞墙；
-    完全工作区模式下不写清"改之前先读"，它就会凭猜测覆盖用户的原文件——
-    这是这个项目里唯一会造成不可逆损失的失误。
+    """按当前数据表、资料文件、文件权限模式和联网开关生成 system prompt。
     """
     columns = columns or []
     files = files or []
-    if not columns and not files and not write_mode:
+    if not columns and not files and not write_mode and not web_search:
         return SYSTEM_PROMPT
 
     parts = ["你是一个数据分析助手。"]
@@ -73,6 +121,12 @@ def make_system_prompt(
             "也可以打开文件和启动程序；写入**不做备份**，覆盖即永久丢失。"
         )
 
+    if web_search:
+        parts.append(
+            "## 联网搜索能力（MCP）\n已挂载 Parallel 联网工具（`web_search` / `web_fetch`），"
+            "可用于检索最新公开资料、行业数据与抓取指定网页正文。"
+        )
+
     if columns:
         head = f"## 数据表\n表 `{TABLE_NAME}`，从 `{label}` 载入"
         if rows:
@@ -81,14 +135,18 @@ def make_system_prompt(
         parts.append(head)
 
     if files:
-        listing = "\n".join(
-            f"- `{f['name']}`（{f.get('kind', '?')}，{f.get('chars', 0):,} 字，"
-            f"{f.get('parts', 1)} 段）"
-            for f in files
-        )
+        def _file_line(f: dict[str, Any]) -> str:
+            img_part = f"，含 {f['images']} 张图片" if f.get("images") else ""
+            return (
+                f"- `{f['name']}`（{f.get('kind', '?')}，{f.get('chars', 0):,} 字，"
+                f"{f.get('parts', 1)} 段{img_part}）"
+            )
+
+        listing = "\n".join(_file_line(f) for f in files)
         parts.append(
-            f"## 资料文件\n用户上传了 {len(files)} 份文档。正文**不在**上下文里，"
-            f"要用工具去读：\n{listing}"
+            f"## 资料文件\n用户上传了 {len(files)} 份资料（含已上传文档或图片）。"
+            f"正文与图片**不在**上下文里，要用 `read_document(name, part=1)` 或 `search_document` 去读"
+            f"（**不要用 `read_file`**，后者只读本机磁盘路径）：\n{listing}"
         )
 
     strategy = ["## 工具使用策略"]
@@ -115,15 +173,26 @@ def make_system_prompt(
         "再 edit_pptx。不要重新 make_pptx 生成整份——重建会丢掉用户后来手动改过的东西"
     )
     strategy.append(
-        "- 读 PDF / Word / PPT / Excel 一律用 read_file。"
-        "不要用 run_python 去 open 或解压它们：沙箱里没有解析库，zipfile 也不在白名单里"
+        "- 读本机磁盘路径上的 PDF / Word / PPT / Excel / 图片用 read_file"
+        "（仅限本机目录，如桌面或 ~"
+        + ("；上面「资料文件」清单里的已上传文件要用 read_document" if files else "")
+        + "）。不要用 run_python 去 open 或解压它们：沙箱里没有解析库，zipfile 也不在白名单里"
     )
     if files:
         strategy += [
-            "- 不确定有哪些文档 -> list_documents，不要猜文件名",
-            "- 已经知道要找什么（某指标、某日期、某条报错）-> search_document 定位",
-            "- 要通读或总结 -> read_document 按段读，别一次读完整份",
+            "- 不确定有哪些已上传资料 -> list_documents，不要猜文件名",
+            "- 已经知道要找什么（某指标、某日期、某条报错）-> search_document 定位，"
+            "支持精确关键词与自然语言语义检索，默认搜全部资料；拿到段号再 read_document 读那一段",
+            "- 要通读、总结或查看已上传图片 -> read_document(name, part=1) 按段读，别一次读完整份",
         ]
+        if any(
+            f.get("images") or f.get("kind") in {"png", "jpg", "jpeg", "webp", "gif", "bmp"}
+            for f in files
+        ):
+            strategy.append(
+                "- 上述「资料文件」清单中的文档或图片包含视觉图像时，"
+                "请直接调用 read_document(name, part=1) 查看图片内容（不要调用 read_file）"
+            )
     if write_mode:
         strategy += [
             "- 不知道目录里有什么 -> list_files，别凭记忆拼路径（支持 ~ 和 桌面）",
@@ -133,6 +202,15 @@ def make_system_prompt(
             "- 用户说\"打开某个文件/目录\" -> open_file，路径照用户的说法给，不用先读内容",
             "- 用户说\"打开某个程序\"（微信、浏览器、记事本）-> 先 find_program 拿到路径，再 open_file",
         ]
+    if web_search:
+        strategy += [
+            "- 需要查外部实时资讯、公开基准数据或行业资料 -> web_search；"
+            "需要读取某个具体网页的完整正文时 -> web_fetch",
+        ]
+    strategy.append(
+        "- 提问含\"今天/昨天/最近/本周/本月/上月/今年/最新\"等相对时间且需精确日期范围时 -> "
+        "先调用 get_current_time 获取本机当前时间与参考区间，不要凭训练记忆猜测年份"
+    )
     parts.append("\n".join(strategy))
 
     rules = ["## 硬性规则", "- 所有数字必须来自工具返回结果，绝不编造。"]
@@ -141,6 +219,10 @@ def make_system_prompt(
     if files:
         rules.append("- 引用文档内容要说明来自哪份文件；文档里没写的不要补充。")
         rules.append("- 文档说法和表里的数字不一致时，把两者都摆出来，不要自己挑一个。")
+    if web_search:
+        rules.append(
+            "- 引用联网搜索或网页抓取内容时必须附上来源 URL，并与本地表/资料的数字明确区分。"
+        )
     if write_mode:
         rules += [
             "- 只能改用户明确提到的文件。要动别的文件，先问，不要顺手整理。",
@@ -151,6 +233,9 @@ def make_system_prompt(
             "- open_file 之后只能说\"已请求系统打开\"，不要说\"已经打开并看到内容\"——你看不到那个窗口。",
         ]
     rules += [
+        "- 当用户消息附带「查询改写」提示（扩展词、多路视角或分解步骤）时，"
+        "将其作为执行参考，直接推进工具调用与回答，不要复述改写模板；"
+        "若某个扩展词或子步骤在当前数据/资料中无结果，如实说明即可。",
         "- SQL 报错或结果为空时，先怀疑自己的写法，改写后重试，同一思路最多两次。",
         "- 不要在回答里贴大段 SQL，只说结论和口径。",
         "- 用中文回答，关键数字带单位和范围。",
@@ -172,6 +257,7 @@ class Agent:
         on_event: Callable[[str, dict[str, Any]], None] | None = None,
         system_prompt: str | None = None,
         session_key: str | None = None,
+        rewriter: QueryRewriter | None = None,
     ) -> None:
         self.session = session or Session()
         self.llm = llm or chat
@@ -184,6 +270,9 @@ class Agent:
         # 所以在 ask() 的入口把它注入上下文，整轮循环里的工具调用都能读到；
         # 退出时还原。None = 不注入，用当前上下文的值（测试里就是这么用的）。
         self.session_key = session_key
+        # 前置查询改写器。默认 None = 完全不启用：现有单测靠 ScriptedLLM 精确断言
+        # 消息条数和事件序列，多一次改写调用就会全红。界面层负责装配它。
+        self.rewriter = rewriter
         self._streams = _takes_on_delta(self.llm)
 
     def _emit(self, kind: str, **payload: Any) -> None:
@@ -230,33 +319,103 @@ class Agent:
         本会话的，所以"留在上下文里的值"活不过一次刷新。实测把还原改成空函数，
         449 条测试里只有两条专门测还原的会红，功能一条都没坏。
         少一层 token 传递，读代码的人就不用先理解 Token 是什么。
+
+        装了 rewriter 之后，这里还多一段**前置改写**：进循环之前把原问题过一遍，
+        换成本轮真正发给模型的增强提问。放在 ask() 而不是 UI 层，是因为 CLI 评测、
+        单测、Streamlit 三个入口都能统一复用；而"改写结果不进 session.messages"
+        这条边界也只有在这里才守得住。
         """
         if self.session_key:
             data_tools.use_dataset(self.session_key)
 
+        # 预算按**这一问**算，不按整个会话算。session.tokens 是累计值（要留着看成本），
+        # 拿它当尺子的话，聊到 80k 之后每一句都会在第一个工具回合后立刻被掐断——
+        # 而且提示是"超出预算"，看着像模型不肯干活。
+        #
+        # 注意这行在**前置改写之前**：改写自己也要花 token，那部分同样属于这一问的成本，
+        # 累加在 spent_before 之后才算得进本轮预算。
+        spent_before = self.session.tokens
+
+        packaged_question = question
+        if self.rewriter is not None and self.rewriter.enabled:
+            # 必须先 use_dataset 再采集上下文：多标签页并发时，晚一步就可能读到
+            # 另一个标签页的表字段与文档目录。
+            ctx = build_context(
+                self.session.messages,
+                session_key=self.session_key,
+                history_turns=self.rewriter.history_turns,
+                web_search=self.registry.get("web_search") is not None,
+            )
+            rw_result = self.rewriter.rewrite(question, ctx)
+            if rw_result.tokens:
+                self.session.tokens += rw_result.tokens
+            # 改写不增加 session.steps：步数专指主 Agent 的 ReAct 步数，
+            # 混进来的话"第 N 步"就再也对不上主循环里的 step 了。
+            self._emit("rewrite", **rw_result.to_event_payload())
+            packaged_question = format_for_agent(rw_result)
+
+        # 历史里只存干净的原话。改写结果只活在本轮的 request_messages 里，
+        # 否则多轮下来上下文会被模板越撑越大，聊天记录恢复界面也会露出内部 prompt。
         self.session.add_user(question)
         if not self.session.messages or self.session.messages[0].get("role") != "system":
             self.session.messages.insert(
                 0, {"role": "system", "content": self.system_prompt}
             )
+        user_idx = len(self.session.messages) - 1
 
         last_signature: str | None = None
         repeat = 0
-        # 预算按**这一问**算，不按整个会话算。session.tokens 是累计值（要留着看成本），
-        # 拿它当尺子的话，聊到 80k 之后每一句都会在第一个工具回合后立刻被掐断——
-        # 而且提示是"超出预算"，看着像模型不肯干活。
-        spent_before = self.session.tokens
+        # 轮次局部的多模态图片附件表：{session.messages 插入位置索引: [DocImage, ...]}。
+        # 只存进发给模型的 request_messages 浅拷贝，不写入持久化 session.messages。
+        step_attachments: dict[int, list[images.DocImage]] = {}
+        sent_image_ids: set[str] = set()
+        vision_fallback = False
 
         for step in range(1, self.max_steps + 1):
             self.session.steps += 1
             streaming = {"on_delta": self._on_delta} if self._streams and self.on_event else {}
+
+            active_attachments = (
+                step_attachments
+                if (config.MULTIMODAL_IMAGES_ENABLED and not vision_fallback)
+                else {}
+            )
+            request_messages = _build_request_messages(
+                self.session.messages,
+                user_idx=user_idx,
+                question=question,
+                packaged_question=packaged_question,
+                step_attachments=active_attachments,
+            )
+
             try:
                 response: LLMResponse = self.llm(
-                    self.session.messages, self.registry.specs(), **streaming
+                    request_messages, self.registry.specs(), **streaming
                 )
             except LLMError as exc:
-                self._emit("error", message=str(exc))
-                return f"（模型调用失败：{exc}）"
+                if active_attachments and _is_multimodal_rejection(exc):
+                    vision_fallback = True
+                    self._emit(
+                        "warning",
+                        message="当前模型不支持多模态图片输入，已自动降级为仅文本模式。",
+                    )
+                    fallback_messages = _build_request_messages(
+                        self.session.messages,
+                        user_idx=user_idx,
+                        question=question,
+                        packaged_question=packaged_question,
+                        step_attachments={},
+                    )
+                    try:
+                        response = self.llm(
+                            fallback_messages, self.registry.specs(), **streaming
+                        )
+                    except LLMError as retry_exc:
+                        self._emit("error", message=str(retry_exc))
+                        return f"（模型调用失败：{retry_exc}）"
+                else:
+                    self._emit("error", message=str(exc))
+                    return f"（模型调用失败：{exc}）"
 
             self.session.tokens += response.total_tokens
             self._emit(
@@ -277,6 +436,7 @@ class Agent:
 
             self.session.add(normalize_assistant(message))
 
+            step_new_images: list[images.DocImage] = []
             for call in message["tool_calls"]:
                 name = call["function"]["name"]
                 raw_args = call["function"].get("arguments") or "{}"
@@ -289,9 +449,27 @@ class Agent:
                     return self._stop("（Agent 在重复调用同一个工具，已强制中止。换个问法试试。）")
 
                 self._emit("tool_call", name=name, args=raw_args)
-                observation = self.registry.call(name, raw_args)
+                with images.collect_step_images() as call_images:
+                    observation = self.registry.call(name, raw_args)
                 self.session.tool_calls += 1
-                self._emit("observation", name=name, text=observation)
+
+                obs_payload: dict[str, Any] = {"name": name, "text": observation}
+                if call_images and config.MULTIMODAL_IMAGES_ENABLED and not vision_fallback:
+                    accepted: list[images.DocImage] = []
+                    for img in call_images:
+                        if img.id in sent_image_ids:
+                            continue
+                        if len(sent_image_ids) >= IMAGE_MAX_PER_TURN:
+                            break
+                        if not img.to_data_url():
+                            continue
+                        sent_image_ids.add(img.id)
+                        accepted.append(img)
+                    if accepted:
+                        step_new_images.extend(accepted)
+                        obs_payload["images"] = [img.to_meta() for img in accepted]
+
+                self._emit("observation", **obs_payload)
 
                 self.session.add(
                     {
@@ -300,6 +478,9 @@ class Agent:
                         "content": observation,
                     }
                 )
+
+            if step_new_images:
+                step_attachments[len(self.session.messages)] = step_new_images
 
             if self.session.tokens - spent_before > self.token_budget:
                 self._emit("warning", message=f"token 预算耗尽（{self.session.tokens - spent_before}）")

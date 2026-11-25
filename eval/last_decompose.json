@@ -1,0 +1,1387 @@
+{
+  "dataset": "E:\\VScode\\datainsight\\eval\\retrieval_dataset_decompose.json",
+  "top_k": 3,
+  "recall_k": 10,
+  "summary": {
+    "A_baseline": {
+      "count": 10,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "any_hit_at_k": 0.1,
+      "zero_hit": 10
+    },
+    "B_global_pack": {
+      "count": 10,
+      "hit_at_k": 0.6,
+      "mrr_at_k": 0.31666666666666665,
+      "recall_at_k": 0.55,
+      "any_hit_at_k": 1.0,
+      "zero_hit": 4
+    },
+    "C_per_unit": {
+      "count": 10,
+      "hit_at_k": 0.6,
+      "mrr_at_k": 0.36666666666666664,
+      "recall_at_k": 0.55,
+      "any_hit_at_k": 1.0,
+      "zero_hit": 4
+    },
+    "D_english_only": {
+      "count": 10,
+      "hit_at_k": 0.9,
+      "mrr_at_k": 0.75,
+      "recall_at_k": 0.9,
+      "any_hit_at_k": 1.0,
+      "zero_hit": 1
+    }
+  },
+  "records": [
+    {
+      "id": "d01",
+      "query": "先说明白皮书里交易手续费如何逐步取代区块奖励，再解释这个过程为什么能让货币总量不再膨胀",
+      "strategy": "decomposition",
+      "reason": "需先查手续费替代机制，再解释总量稳定原因，两步有依赖",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "比特币白皮书中交易手续费如何逐步取代区块奖励的机制是什么",
+          "english_terms": [
+            "transaction fee block reward replacement"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "基于Q1的手续费替代机制，解释为什么这个过程能让比特币货币总量不再膨胀",
+          "english_terms": [
+            "money supply inflation control"
+          ]
+        }
+      ],
+      "global_pack": "transaction fee block reward replacement money supply inflation control",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          6
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              35
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 3,
+          "rank_in_recall_k": 3,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 4,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              8
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              6
+            ],
+            [
+              "bitcoin_en.pdf",
+              5
+            ],
+            [
+              "bitcoin_en.pdf",
+              8
+            ]
+          ]
+        }
+      },
+      "latency_ms": 5645.168100000774
+    },
+    {
+      "id": "d02",
+      "query": "对比完整节点自行验证交易和 SPV 只靠区块头验证这两种方式，并说明 SPV 凭什么能确认一笔交易已被网络接受",
+      "strategy": "decomposition",
+      "reason": "需先分别检索两种验证机制再对比归因，跨文档协同",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "完整节点（全节点）如何自行验证一笔比特币交易的合法性，包括验证所依赖的数据与流程",
+          "english_terms": [
+            "full node transaction verification",
+            "UTXO validation",
+            "blockchain consensus rules"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "SPV（简单支付验证）仅靠区块头验证交易的原理与流程",
+          "english_terms": [
+            "SPV simplified payment verification",
+            "block header",
+            "lightweight client"
+          ]
+        },
+        {
+          "id": "Q3",
+          "query": "SPV 凭什么能确认一笔交易已被网络接受，其安全假设与默克尔证明的作用是什么",
+          "english_terms": [
+            "Merkle proof",
+            "transaction confirmation",
+            "SPV security assumptions"
+          ]
+        },
+        {
+          "id": "Q4",
+          "query": "对比完整节点自行验证交易与 SPV 仅靠区块头验证两种方式在安全性、资源开销与适用场景上的差异",
+          "english_terms": [
+            "full node vs SPV comparison",
+            "security tradeoff",
+            "resource overhead"
+          ]
+        }
+      ],
+      "global_pack": "full node transaction verification UTXO validation blockchain consensus rules SPV simplified payment verification block header lightweight client Merkle proof transaction confirmation SPV security assumptions full node vs SPV comparison security tradeoff resource overhead",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          7
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              19
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              16
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 4,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              33
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 3,
+          "rank_in_recall_k": 3,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "bitcoin_en.pdf",
+              7
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              6
+            ],
+            [
+              "bitcoin_en.pdf",
+              7
+            ],
+            [
+              "bitcoin_en.pdf",
+              5
+            ]
+          ]
+        }
+      },
+      "latency_ms": 7421.914800000195
+    },
+    {
+      "id": "d03",
+      "query": "先在中文教程里找出区块链对分叉的解释，再对照英文白皮书里节点的实际处理规则，说明两条等长链最终靠什么打破平局、全网回到同一条链上",
+      "strategy": "decomposition",
+      "reason": "需先查中文教程分叉解释，再对照英文白皮书节点规则，最后综合归因",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "在《区块链教程-廖雪峰-2025-06-16.pdf》中找出区块链对分叉的解释",
+          "english_terms": [
+            "fork",
+            "blockchain fork",
+            "chain split"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "在《bitcoin_en.pdf》中找出节点处理两条等长链的实际规则",
+          "english_terms": [
+            "node",
+            "equal-length chain",
+            "tie-breaking"
+          ]
+        },
+        {
+          "id": "Q3",
+          "query": "综合中文教程的分叉解释与英文白皮书的节点规则，说明两条等长链最终靠什么打破平局、全网回到同一条链上",
+          "english_terms": [
+            "tie-breaking",
+            "consensus",
+            "longest chain"
+          ]
+        }
+      ],
+      "global_pack": "fork blockchain fork chain split node equal-length chain tie-breaking tie-breaking consensus longest chain",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          5
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              16
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              1
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              5
+            ],
+            [
+              "bitcoin_en.pdf",
+              11
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              32
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              16
+            ],
+            [
+              "bitcoin_en.pdf",
+              5
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              1
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              5
+            ],
+            [
+              "bitcoin_en.pdf",
+              11
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ]
+          ]
+        }
+      },
+      "latency_ms": 4068.9348999994763
+    },
+    {
+      "id": "d04",
+      "query": "先在白皮书里找出工作量证明难度是怎么定义的，再据此解释为什么生成一个合法区块要指数级工作量、而验证它只要执行一次哈希",
+      "strategy": "decomposition",
+      "reason": "先检索定义再据此解释，存在先后依赖",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "在比特币白皮书（bitcoin_en.pdf）中找出工作量证明（Proof of Work）难度的定义与难度目标设定方式",
+          "english_terms": [
+            "Proof of Work difficulty target definition"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "基于比特币白皮书中工作量证明难度的定义，解释为什么生成一个合法区块需要指数级工作量、而验证该区块只需执行一次哈希",
+          "english_terms": [
+            "block generation exponential work verification single hash"
+          ]
+        }
+      ],
+      "global_pack": "Proof of Work difficulty target definition block generation exponential work verification single hash",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          4
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 5,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              16
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              15
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 4,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              15
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              14
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 3,
+          "rank_in_recall_k": 3,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              15
+            ],
+            [
+              "bitcoin_en.pdf",
+              4
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              4
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ]
+          ]
+        }
+      },
+      "latency_ms": 4761.778600000071
+    },
+    {
+      "id": "d05",
+      "query": "先说明白皮书用什么模型估算攻击者从落后若干区块的位置追上来的概率，再解释为什么这里可以用泊松分布来建模",
+      "strategy": "decomposition",
+      "reason": "需先定位白皮书模型再解释泊松建模理由，两步有依赖",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "比特币白皮书中用什么模型估算攻击者从落后若干区块的位置追上来的概率",
+          "english_terms": [
+            "Bitcoin whitepaper attacker catch-up probability model"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "为什么比特币白皮书可以用泊松分布来建模攻击者追赶概率",
+          "english_terms": [
+            "Poisson distribution modeling rationale Bitcoin"
+          ]
+        }
+      ],
+      "global_pack": "Bitcoin whitepaper attacker catch-up probability model Poisson distribution modeling rationale Bitcoin",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          9
+        ],
+        [
+          "bitcoin_en.pdf",
+          10
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              29
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              3
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 0.5,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              3
+            ],
+            [
+              "bitcoin_en.pdf",
+              10
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              29
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 0.5,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ],
+            [
+              "bitcoin_en.pdf",
+              10
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              29
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              10
+            ],
+            [
+              "bitcoin_en.pdf",
+              9
+            ],
+            [
+              "bitcoin_en.pdf",
+              1
+            ]
+          ]
+        }
+      },
+      "latency_ms": 5122.234699999353
+    },
+    {
+      "id": "d06",
+      "query": "先找出白皮书隐私章节要求的具体做法，再结合中英两份资料解释为什么每笔交易都要换一对新密钥，最后说明多输入交易为什么仍会泄露关联",
+      "strategy": "decomposition",
+      "reason": "三步依赖：先查隐私章节做法，再结合中英资料解释换密钥原因，最后说明多输入关联泄露",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "在《中国区块链创新应用案例集.pdf》和《区块链教程-廖雪峰-2025-06-16.pdf》中查找白皮书隐私章节要求的具体做法",
+          "english_terms": [
+            "privacy chapter",
+            "whitepaper privacy requirements"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "结合《bitcoin_en.pdf》和《区块链教程-廖雪峰-2025-06-16.pdf》解释为什么比特币每笔交易都要换一对新密钥",
+          "english_terms": [
+            "new key pair per transaction",
+            "bitcoin key reuse"
+          ]
+        },
+        {
+          "id": "Q3",
+          "query": "结合《bitcoin_en.pdf》和《区块链教程-廖雪峰-2025-06-16.pdf》说明多输入交易为什么仍会泄露关联",
+          "english_terms": [
+            "multi-input transaction",
+            "transaction linkability"
+          ]
+        }
+      ],
+      "global_pack": "privacy chapter whitepaper privacy requirements new key pair per transaction bitcoin key reuse multi-input transaction transaction linkability",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          8
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              19
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              23
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              10
+            ],
+            [
+              "bitcoin_en.pdf",
+              8
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              8
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              19
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              12
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              8
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ],
+            [
+              "bitcoin_en.pdf",
+              1
+            ]
+          ]
+        }
+      },
+      "latency_ms": 5785.5116000000635
+    },
+    {
+      "id": "d07",
+      "query": "说明白皮书为什么认为传统依赖可信第三方的电子支付成本高且不可逆，再说明它提出的替代方案建立在什么基础上",
+      "strategy": "decomposition",
+      "reason": "问题含两个先后依赖的子任务：先解释成本高与不可逆原因，再说明替代方案基础",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "比特币白皮书为什么认为传统依赖可信第三方的电子支付成本高且不可逆",
+          "english_terms": [
+            "trusted third party",
+            "electronic payment",
+            "transaction cost"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "比特币白皮书提出的替代方案建立在什么基础上",
+          "english_terms": [
+            "peer-to-peer network",
+            "proof-of-work",
+            "cryptographic hash"
+          ]
+        }
+      ],
+      "global_pack": "trusted third party electronic payment transaction cost peer-to-peer network proof-of-work cryptographic hash",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          2
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              1
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              19
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 5,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "bitcoin_en.pdf",
+              1
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 8,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              13
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              8
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              1
+            ],
+            [
+              "bitcoin_en.pdf",
+              2
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ]
+          ]
+        }
+      },
+      "latency_ms": 4126.931599999807
+    },
+    {
+      "id": "d08",
+      "query": "先找出白皮书里回收磁盘空间依赖的是哪种数据结构，再据此说明为什么修剪掉已被埋深的旧交易不会破坏区块自身的哈希",
+      "strategy": "decomposition",
+      "reason": "需先定位数据结构再解释哈希不变性，两步有依赖",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "比特币白皮书中，回收磁盘空间依赖的是哪种数据结构？",
+          "english_terms": [
+            "Merkle tree disk space reclamation"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "基于比特币白皮书中回收磁盘空间所依赖的数据结构，说明为什么修剪掉已被埋深的旧交易不会破坏区块自身的哈希。",
+          "english_terms": [
+            "block hash Merkle root pruning buried transactions"
+          ]
+        }
+      ],
+      "global_pack": "Merkle tree disk space reclamation block hash Merkle root pruning buried transactions",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          6
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              33
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              3
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.3333333333333333,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 3,
+          "rank_in_recall_k": 3,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              33
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 4,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              33
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              6
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              33
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              6
+            ]
+          ]
+        }
+      },
+      "latency_ms": 4176.297500000146
+    },
+    {
+      "id": "d09",
+      "query": "先说明白皮书靠什么规则判定哪一笔交易才算数，再据此解释为什么为了在没有可信第三方时判断先后，交易必须公开广播并形成单一历史顺序",
+      "strategy": "decomposition",
+      "reason": "问题含先后依赖：先查共识规则，再据此解释广播与排序",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "区块链白皮书（如比特币白皮书）中靠什么规则判定哪一笔交易才算数、有效交易如何被确认",
+          "english_terms": [
+            "bitcoin whitepaper transaction validity consensus rules"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "基于Q1的判定规则，解释在没有可信第三方时判断交易先后顺序，为什么交易必须公开广播并形成单一历史顺序",
+          "english_terms": [
+            "broadcast transactions single history order no trusted third party"
+          ]
+        }
+      ],
+      "global_pack": "bitcoin whitepaper transaction validity consensus rules broadcast transactions single history order no trusted third party",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          3
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              16
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              1
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ],
+            [
+              "bitcoin_en.pdf",
+              2
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 1,
+          "rank_in_recall_k": 1,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              3
+            ],
+            [
+              "bitcoin_en.pdf",
+              1
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 4,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 1,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              1
+            ],
+            [
+              "bitcoin_en.pdf",
+              6
+            ],
+            [
+              "bitcoin_en.pdf",
+              2
+            ]
+          ]
+        }
+      },
+      "latency_ms": 4321.50140000067
+    },
+    {
+      "id": "d10",
+      "query": "说明为什么光有数字签名还不够防住双重支付，以及白皮书用什么样的链式结构来补上这一环",
+      "strategy": "decomposition",
+      "reason": "问题含先后依赖：先解释数字签名不足，再说明链式结构如何补足",
+      "units": [
+        {
+          "id": "Q1",
+          "query": "说明为什么光有数字签名还不够防住双重支付",
+          "english_terms": [
+            "digital signature",
+            "double-spending"
+          ]
+        },
+        {
+          "id": "Q2",
+          "query": "说明比特币白皮书用什么样的链式结构来补上防双重支付这一环",
+          "english_terms": [
+            "block chain",
+            "timestamp server",
+            "proof-of-work"
+          ]
+        }
+      ],
+      "global_pack": "digital signature double-spending block chain timestamp server proof-of-work",
+      "relevant": [
+        [
+          "bitcoin_en.pdf",
+          1
+        ]
+      ],
+      "evaluated": true,
+      "configs": {
+        "A_baseline": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": null,
+          "any_hit_at_k": 0.0,
+          "any_rank_in_top_k": null,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              19
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              2
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              7
+            ]
+          ]
+        },
+        "B_global_pack": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 6,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 3,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              7
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              12
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ]
+          ]
+        },
+        "C_per_unit": {
+          "hit_at_k": 0.0,
+          "mrr_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "rank_in_top_k": null,
+          "rank_in_recall_k": 5,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              23
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              7
+            ],
+            [
+              "区块链教程-廖雪峰-2025-06-16.pdf",
+              19
+            ]
+          ]
+        },
+        "D_english_only": {
+          "hit_at_k": 1.0,
+          "mrr_at_k": 0.5,
+          "recall_at_k": 1.0,
+          "rank_in_top_k": 2,
+          "rank_in_recall_k": 2,
+          "any_hit_at_k": 1.0,
+          "any_rank_in_top_k": 2,
+          "degraded": false,
+          "top": [
+            [
+              "bitcoin_en.pdf",
+              2
+            ],
+            [
+              "bitcoin_en.pdf",
+              1
+            ],
+            [
+              "bitcoin_en.pdf",
+              3
+            ]
+          ]
+        }
+      },
+      "latency_ms": 3701.512999999977
+    }
+  ]
+}

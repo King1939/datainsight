@@ -66,6 +66,96 @@ def load_env(path: Path = ROOT / ".env") -> None:
 
 load_env()
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off", ""}
+
+
+# 前置查询改写（默认开启；可通过环境变量 QUERY_REWRITE_ENABLED=0 关闭）。
+# 放在 load_env() 之后：.env 里写 QUERY_REWRITE_ENABLED=0 也要生效，
+# 写在它前面就只认进程环境变量了。
+QUERY_REWRITE_ENABLED = _env_bool("QUERY_REWRITE_ENABLED", True)
+QUERY_REWRITE_TIMEOUT = 15
+QUERY_REWRITE_MAX_TOKENS = 600
+QUERY_REWRITE_HISTORY_TURNS = 4
+QUERY_REWRITE_MAX_EXPANSIONS = 6
+QUERY_REWRITE_MAX_MULTI = 4
+QUERY_REWRITE_MAX_DECOMPOSE = 5
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return float(raw.strip())
+    except ValueError:
+        return default
+
+
+# 混合检索与 Embedding（默认开启混合模式；未配置向量模型时自动平滑降级为纯 BM25）
+HYBRID_SEARCH_ENABLED = _env_bool("HYBRID_SEARCH_ENABLED", True)
+EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "openai_compat").strip().lower() or "openai_compat"
+EMBEDDING_BASE_URL = os.environ.get("EMBEDDING_BASE_URL", "").strip()
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "").strip()
+EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "").strip()
+_raw_emb_dim = os.environ.get("EMBEDDING_DIMENSIONS", "").strip()
+EMBEDDING_DIMENSIONS: int | None = (
+    int(_raw_emb_dim) if _raw_emb_dim.isdigit() and int(_raw_emb_dim) > 0 else None
+)
+
+EMBEDDING_SUBCHUNK_CHARS = _env_int("EMBEDDING_SUBCHUNK_CHARS", 500)
+EMBEDDING_SUBCHUNK_OVERLAP = _env_int("EMBEDDING_SUBCHUNK_OVERLAP", 80)
+EMBEDDING_MAX_CHARS = _env_int("EMBEDDING_MAX_CHARS", 2000)
+EMBEDDING_BATCH_SIZE = _env_int("EMBEDDING_BATCH_SIZE", 16)
+EMBEDDING_TIMEOUT = _env_int("EMBEDDING_TIMEOUT", 30)
+EMBEDDING_QUERY_TIMEOUT = _env_int("EMBEDDING_QUERY_TIMEOUT", 10)
+
+BM25_K1 = _env_float("BM25_K1", 1.5)
+BM25_B = _env_float("BM25_B", 0.75)
+BM25_MIN_SCORE = _env_float("BM25_MIN_SCORE", 0.5)
+BM25_USE_JIEBA = _env_bool("BM25_USE_JIEBA", True)
+
+VECTOR_MIN_SCORE = _env_float("VECTOR_MIN_SCORE", 0.35)
+HYBRID_RECALL_TOP_K = _env_int("HYBRID_RECALL_TOP_K", 20)
+RRF_K = _env_int("RRF_K", 60)
+RRF_BM25_WEIGHT = _env_float("RRF_BM25_WEIGHT", 1.0)
+RRF_VECTOR_WEIGHT = _env_float("RRF_VECTOR_WEIGHT", 1.0)
+
+# 多模态文档图片抽取与提交（默认开启；纯文本模型报错时会自动降级回纯文本）
+MULTIMODAL_IMAGES_ENABLED = _env_bool("MULTIMODAL_IMAGES_ENABLED", True)
+IMAGE_MAX_SIDE = _env_int("IMAGE_MAX_SIDE", 1568)
+IMAGE_MAX_BYTES = _env_int("IMAGE_MAX_BYTES", 2 * 1024 * 1024)
+IMAGE_MAX_PER_DOC = _env_int("IMAGE_MAX_PER_DOC", 24)
+IMAGE_MAX_PER_TURN = _env_int("IMAGE_MAX_PER_TURN", 6)
+
+# 联网搜索（MCP Streamable HTTP，默认走 Parallel 新版免 Key 入口；未勾选时不主动连外网）
+MCP_WEB_SEARCH_ENABLED = _env_bool("MCP_WEB_SEARCH_ENABLED", False)
+MCP_PARALLEL_URL = (
+    os.environ.get("MCP_PARALLEL_URL", "https://mcp.parallel.ai/mcp").strip()
+    or "https://mcp.parallel.ai/mcp"
+)
+MCP_ALLOWED_TOOLS = tuple(
+    t.strip()
+    for t in os.environ.get("MCP_ALLOWED_TOOLS", "web_search,web_fetch").split(",")
+    if t.strip()
+)
+MCP_TIMEOUT = _env_int("MCP_TIMEOUT", 25)
+
+
 BASE_URL = os.environ.get("BASE_URL", "https://api.deepseek.com/v1")
 MODEL = os.environ.get("MODEL", "deepseek-chat")
 API_KEY = os.environ.get("API_KEY", "")
@@ -343,3 +433,197 @@ def reload() -> ModelConfig:
     _active = None
     _profiles = None
     return current()
+
+
+# ---------------------------------------------------------------- 向量模型配置
+#
+# 和对话模型**完全独立**：当前对话模型是 DeepSeek，它没有 /embeddings 端点，
+# 把对话那套 base_url 复用过来只会得到一个 404。所以这里单独一套配置、
+# 单独一个文件（data/embedding.json），互不覆盖。
+#
+# 配置来源的优先级：内存（本次会话里改过的）> data/embedding.json > .env。
+
+EMBEDDING_FILE = DATA_DIR / "embedding.json"
+
+_ALLOWED_PROVIDERS = {"openai_compat", "local"}
+
+
+@dataclass(frozen=True)
+class EmbeddingConfig:
+    """一套向量模型连接参数。"""
+
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    provider: str = "openai_compat"   # "openai_compat" | "local"
+    dimensions: int | None = None
+
+    @property
+    def endpoint(self) -> str:
+        base = (self.base_url or "").strip().rstrip("/")
+        if not base:
+            return ""
+        if base.endswith("/embeddings"):
+            return base
+        return base + "/embeddings"
+
+    @property
+    def is_local_host(self) -> bool:
+        host = (urlsplit(self.base_url).hostname or "").lower()
+        return host in {"localhost", "127.0.0.1", "::1"}
+
+    @property
+    def ready(self) -> bool:
+        """能不能真的发请求。本机服务（Ollama）不需要 Key。"""
+        if self.provider == "local":
+            return bool(self.model)
+        return bool(self.base_url and self.model and (self.api_key or self.is_local_host))
+
+    @property
+    def model_key(self) -> str:
+        """缓存与落库的隔离键：换模型或换维度就是另一套向量，不能混用。"""
+        return f"{self.provider}:{self.model}:{self.dimensions or 0}"
+
+    @property
+    def masked_key(self) -> str:
+        key = self.api_key or ""
+        if not key:
+            return "无需填写（本机）" if self.is_local_host or self.provider == "local" else "未填写"
+        if len(key) <= 8:
+            return "已填写"
+        return f"{key[:4]}…{key[-4:]}"
+
+
+def _embedding_from_env() -> EmbeddingConfig:
+    """从 .env 那套组装。地址为空时**不**调 normalize_base_url——那会抛 ValueError，
+    导入阶段就炸，页面根本打不开。"""
+    base = normalize_base_url(EMBEDDING_BASE_URL) if EMBEDDING_BASE_URL else ""
+    provider = EMBEDDING_PROVIDER if EMBEDDING_PROVIDER in _ALLOWED_PROVIDERS else "openai_compat"
+    return EmbeddingConfig(
+        base_url=base,
+        model=EMBEDDING_MODEL,
+        api_key=EMBEDDING_API_KEY,
+        provider=provider,
+        dimensions=EMBEDDING_DIMENSIONS,
+    )
+
+
+EMBEDDING_ENV_DEFAULTS = _embedding_from_env()
+
+_embedding_cfg: EmbeddingConfig | None = None
+
+
+def _parse_embedding(entry: object) -> EmbeddingConfig | None:
+    if not isinstance(entry, dict):
+        return None
+    provider = str(entry.get("provider") or "").strip().lower()
+    if provider and provider not in _ALLOWED_PROVIDERS:
+        return None
+    dims = entry.get("dimensions")
+    try:
+        dimensions = int(dims) if dims not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        dimensions = None
+    base = str(entry.get("base_url") or "").strip()
+    try:
+        base = normalize_base_url(base) if base else ""
+    except ValueError:
+        return None
+    return EmbeddingConfig(
+        base_url=base,
+        model=str(entry.get("model") or "").strip(),
+        api_key=str(entry.get("api_key") or "").strip(),
+        provider=provider or "openai_compat",
+        dimensions=dimensions,
+    )
+
+
+def _read_embedding() -> EmbeddingConfig | None:
+    """读盘。文件坏了就当没有，静默退回 .env。"""
+    try:
+        data = json.loads(EMBEDDING_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return _parse_embedding(data)
+
+
+def embedding_current() -> EmbeddingConfig:
+    global _embedding_cfg
+    if _embedding_cfg is None:
+        _embedding_cfg = _read_embedding() or EMBEDDING_ENV_DEFAULTS
+    return _embedding_cfg
+
+
+def set_embedding(
+    *,
+    base_url: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
+    provider: str | None = None,
+    dimensions: int | None = None,
+) -> EmbeddingConfig:
+    """改一套参数（只动内存）。要留下就接着调 save_embedding()。"""
+    base = embedding_current()
+    raw = base.base_url if base_url is None else str(base_url).strip()
+    url = normalize_base_url(raw) if raw else ""
+    name = str(model if model is not None else base.model or "").strip()
+    key = str(api_key if api_key is not None else base.api_key or "").strip()
+    want = str(provider or base.provider or "openai_compat").strip().lower()
+    if want not in _ALLOWED_PROVIDERS:
+        raise ValueError(f"不支持的向量模型类型：{want}")
+    dims = base.dimensions if dimensions is None else dimensions
+
+    global _embedding_cfg
+    _embedding_cfg = EmbeddingConfig(
+        base_url=url, model=name, api_key=key, provider=want, dimensions=dims or None
+    )
+    return _embedding_cfg
+
+
+def save_embedding(cfg: EmbeddingConfig | None = None) -> Path | None:
+    """落盘。一条内容都没有就删文件，别留空壳。写法同 model.json（临时文件 + 原子替换）。"""
+    cfg = cfg or embedding_current()
+    global _embedding_cfg
+    _embedding_cfg = cfg
+
+    if not (cfg.base_url or cfg.model or cfg.api_key):
+        try:
+            EMBEDDING_FILE.unlink()
+        except OSError:
+            pass
+        return None
+
+    payload = json.dumps(
+        {
+            "provider": cfg.provider,
+            "base_url": cfg.base_url,
+            "model": cfg.model,
+            "api_key": cfg.api_key,
+            "dimensions": cfg.dimensions,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+    EMBEDDING_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = EMBEDDING_FILE.with_name(EMBEDDING_FILE.name + ".tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    os.replace(tmp, EMBEDDING_FILE)
+    return EMBEDDING_FILE
+
+
+def clear_embedding() -> EmbeddingConfig:
+    """删掉存的那份，退回 .env。"""
+    global _embedding_cfg
+    try:
+        EMBEDDING_FILE.unlink()
+    except OSError:
+        pass
+    _embedding_cfg = EMBEDDING_ENV_DEFAULTS
+    return _embedding_cfg
+
+
+def reload_embedding() -> EmbeddingConfig:
+    """丢掉内存那份重新读盘。测试和"恢复默认"用。"""
+    global _embedding_cfg
+    _embedding_cfg = None
+    return embedding_current()

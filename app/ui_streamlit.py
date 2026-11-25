@@ -19,15 +19,18 @@ from typing import TYPE_CHECKING, Any
 import streamlit as st
 from streamlit.components.v1 import html as st_html
 
-from . import chats, config, files, readers, uploads, vault
+from . import chats, config, embeddings, files, hybrid_search, readers, uploads, vault
 from .agent import Agent, make_system_prompt
 from .config import MAX_UPLOAD_MB, VAULT_QUOTA_MB
 from .llm import chat as llm_chat
 from .llm import probe as llm_probe
+from .mcp_bridge import build_web_registry
+from .query_rewrite import QueryRewriter
 from .readers import UPLOAD_SUFFIXES, DocumentError
 from .session import Session
 from .tools import data_tools as dt
 from .tools import load_missing
+from .tools import registry as default_registry
 from .ui_render import (
     TraceLog,
     dataset_badge,
@@ -171,6 +174,20 @@ def _init_state() -> None:
     if "missing_table" not in ss:
         # 历史对话绑的那张表已经不在了（比如临时上传的 CSV），只能提示用户重传
         ss.missing_table = None
+    if "query_rewrite" not in ss:
+        # 侧边栏那个开关的值。默认跟环境变量走（QUERY_REWRITE_ENABLED=0 可以关掉），
+        # 之后由控件自己管。
+        ss.query_rewrite = config.QUERY_REWRITE_ENABLED
+    if "hybrid_search" not in ss:
+        # 混合检索开关。默认开：没配向量模型时它自动只用 BM25，开着的代价为零。
+        ss.hybrid_search = config.HYBRID_SEARCH_ENABLED
+    if "web_search" not in ss:
+        # 联网搜索开关（Parallel MCP）。默认关闭，勾选后再连远程端点。
+        ss.web_search = config.MCP_WEB_SEARCH_ENABLED
+    if "mcp_tools" not in ss:
+        ss.mcp_tools = []
+    if "mcp_error" not in ss:
+        ss.mcp_error = None
     if "model_panel" not in ss:
         # 右侧「模型设置」是否展开。默认收起：它不是每天都要碰的东西。
         ss.model_panel = False
@@ -210,6 +227,18 @@ def _sync_mode() -> bool:
     return changed
 
 
+def _sync_hybrid_mode() -> None:
+    """把侧边栏开关同步到检索层。
+
+    和 _sync_mode() 同一个道理：Streamlit 的控件值在被点的那一次 rerun 里就已经
+    写进 session_state，所以脚本一开头就同步，这一趟的检索才是新设置，不会滞后一轮。
+    """
+    ss = st.session_state
+    hybrid_search.set_hybrid_enabled(
+        bool(ss.get("hybrid_search", config.HYBRID_SEARCH_ENABLED))
+    )
+
+
 def _mode_control() -> None:
     """输入框上方的模式开关。
 
@@ -229,9 +258,34 @@ def _mode_control() -> None:
     )
 
 
-def _can_chat(has_content: bool) -> bool:
-    """是否显示提问框。有数据/资料可以；完全工作区下什么都没有也可以。"""
-    return has_content or files.allow_write()
+def _can_chat(has_content: bool, *, web_search: bool = False) -> bool:
+    """是否显示提问框。有数据/资料可以；完全工作区或开启联网搜索下什么都没有也可以。"""
+    return has_content or files.allow_write() or web_search
+
+
+def _active_registry():
+    """按当前联网开关返回给 Agent 使用的工具注册表。"""
+    ss = st.session_state
+    if not bool(ss.get("web_search", False)):
+        ss.mcp_tools = []
+        ss.mcp_error = None
+        return default_registry
+    reg, mounted, err = build_web_registry(default_registry)
+    ss.mcp_tools = mounted
+    ss.mcp_error = err
+    return reg
+
+
+def _sync_web_search() -> bool:
+    """同步联网搜索开关；开关变化时刷新已有 Agent 的工具注册表与 prompt。"""
+    ss = st.session_state
+    want = bool(ss.get("web_search", config.MCP_WEB_SEARCH_ENABLED))
+    prev = ss.get("_last_web_search")
+    changed = prev is not None and prev != want
+    ss["_last_web_search"] = want
+    if changed and ss.get("agent") is not None and hasattr(ss.agent, "registry"):
+        ss.agent.registry = _active_registry()
+    return changed
 
 
 def _prompt_text() -> str:
@@ -242,6 +296,27 @@ def _prompt_text() -> str:
         meta.get("label") or "当前数据",
         dt.document_digest(),
         files.allow_write(),
+        web_search=bool(st.session_state.get("web_search", False)),
+    )
+
+
+def _make_agent(session: Session, prompt: str) -> Agent:
+    """装配 Agent 的唯一入口。
+
+    三处建 Agent 的地方（换数据集、刷新 prompt、恢复历史）都走这里：
+    改写器要在每一处都装上，漏一处就会出现"换张表之后改写突然失效"这种
+    只在特定操作路径下才复现的问题。
+    """
+    ss = st.session_state
+    rewriter = QueryRewriter(
+        enabled=bool(ss.get("query_rewrite", config.QUERY_REWRITE_ENABLED))
+    )
+    return Agent(
+        session,
+        registry=_active_registry(),
+        system_prompt=prompt,
+        session_key=ss.sid,
+        rewriter=rewriter,
     )
 
 
@@ -249,7 +324,7 @@ def _reset_conversation() -> None:
     """换数据集必须清空对话：旧对话里的列名和新表无关，留着只会误导模型。"""
     ss = st.session_state
     ss.session = Session()
-    ss.agent = Agent(ss.session, system_prompt=_prompt_text(), session_key=ss.sid)
+    ss.agent = _make_agent(ss.session, _prompt_text())
     ss.turns = []
     ss.conv_title = None
 
@@ -264,7 +339,7 @@ def _refresh_prompt() -> None:
     text = _prompt_text()
     agent = ss.get("agent")
     if agent is None:
-        ss.agent = Agent(ss.session, system_prompt=text, session_key=ss.sid)
+        ss.agent = _make_agent(ss.session, text)
     else:
         agent.update_system_prompt(text)
 
@@ -383,7 +458,7 @@ def _restore_chat() -> None:
         tokens=int(chat.stats.get("tokens") or 0),
         tool_calls=int(chat.stats.get("tool_calls") or 0),
     )
-    ss.agent = Agent(ss.session, system_prompt=_prompt_text(), session_key=ss.sid)
+    ss.agent = _make_agent(ss.session, _prompt_text())
 
     table = chat.table or {}
     if table.get("kind") == "vault" and table.get("id"):
@@ -558,6 +633,22 @@ def _reset_uploader(which: str) -> None:
     ss[f"{which}_sigs"] = {}
 
 
+def _preindex_in_background(doc) -> None:
+    """上传后顺手把向量算好，丢后台线程，不挡用户当前这次操作。
+
+    为什么不在 `vault.add()` / `dt.add_document()` 里做：那两个函数被测试大量直接调用，
+    在里面发网络请求会让 `test_vault`、`test_week4_ui` 变成"要不要联网"的测试。
+    索引是**加速**，不是正确性前提——没算完只是第一次搜索慢一点，
+    `vector_search` 里的 `ensure_indexed()` 会兜底补算。
+    """
+    if not getattr(st.session_state, "hybrid_search", config.HYBRID_SEARCH_ENABLED):
+        return
+    cfg = config.embedding_current()
+    if not cfg.ready:
+        return
+    embeddings.VectorStore().preindex_async([doc], cfg=cfg)
+
+
 def _handle_temp_upload(files) -> None:
     """临时上传：只登记进这次会话，不写储藏区。"""
     ss = st.session_state
@@ -606,6 +697,7 @@ def _handle_temp_upload(files) -> None:
                 continue
             if doc.note:
                 st.warning(f"`{doc.name}`：{doc.note}")
+            _preindex_in_background(doc)
 
         ss.temp_sigs[signature] = file.name
         changed = True
@@ -661,6 +753,10 @@ def _handle_vault_upload(files) -> None:
             ss.table_id = entry.id
             ss.temp_table = None
             ss.bound = None
+        else:
+            doc = vault.open_document(entry)
+            if doc is not None:
+                _preindex_in_background(doc)
         changed = True
 
     if changed:
@@ -734,7 +830,8 @@ def _render_temp_sources() -> None:
     for doc in docs:
         left, right = st.columns([3, 1])
         left.markdown(f"`{doc.name}`")
-        left.caption(f"临时资料 · {doc.chars:,} 字 · 关掉页面就没了")
+        img_part = f" · {doc.image_count} 图" if doc.image_count else ""
+        left.caption(f"临时资料 · {doc.chars:,} 字{img_part} · 关掉页面就没了")
         if right.button("移除", key=f"rm_temp_{doc.name}", use_container_width=True):
             _remove_temp_doc(doc.name)
 
@@ -778,7 +875,8 @@ def _render_vault() -> None:
         if entry.is_table:
             detail = f"数据表 · {size_label(entry.size)}"
         else:
-            detail = f"{suffix} 资料 · {entry.chars:,} 字 · {size_label(entry.size)}"
+            img_part = f" · {entry.image_count} 图" if entry.image_count else ""
+            detail = f"{suffix} 资料 · {entry.chars:,} 字{img_part} · {size_label(entry.size)}"
         left.caption(detail + (" · 正在分析" if active else ""))
 
         if entry.is_table:
@@ -790,8 +888,12 @@ def _render_vault() -> None:
             _drop_entry(entry)
 
 
+_CHAT_HISTORY_SCROLL_THRESHOLD = 5
+_CHAT_HISTORY_BOX_HEIGHT = 260
+
+
 def _render_chat_history() -> None:
-    """侧边栏的历史列表：最多 8 条，最近更新的在前。"""
+    """侧边栏的历史列表：最多展示全部保留对话，超出 5 条时用固定高度容器提供下滑滚动条。"""
     ss = st.session_state
     st.subheader("历史对话")
     if st.button("新对话", use_container_width=True, key="new_chat"):
@@ -800,21 +902,27 @@ def _render_chat_history() -> None:
     if ss.get("missing_table"):
         st.caption(f"这个对话用的表 `{ss.missing_table}` 已经不在了。重新传一份，或者换个对话。")
 
-    items = chats.list_chats(limit=8)
+    items = chats.list_chats(limit=chats.KEEP)
     if not items:
         st.caption("问答会自动存下来，关掉页面也还在。")
         return
 
-    for item in items:
-        chat_id = str(item.get("id"))
-        title = item.get("title") or "未命名对话"
-        left, right = st.columns([5, 1])
-        if chat_id == ss.get("chat_id"):
-            left.caption(f"▸ {title}")
-        elif left.button(title, key=f"open_{chat_id}", use_container_width=True):
-            _forget_local_state(chat_id)
-        if right.button("×", key=f"rm_chat_{chat_id}", help="删除这个对话"):
-            _delete_chat(chat_id)
+    container = (
+        st.container(height=_CHAT_HISTORY_BOX_HEIGHT, border=True)
+        if len(items) > _CHAT_HISTORY_SCROLL_THRESHOLD
+        else st.container()
+    )
+    with container:
+        for item in items:
+            chat_id = str(item.get("id"))
+            title = item.get("title") or "未命名对话"
+            left, right = st.columns([5, 1])
+            if chat_id == ss.get("chat_id"):
+                left.caption(f"▸ {title}")
+            elif left.button(title, key=f"open_{chat_id}", use_container_width=True):
+                _forget_local_state(chat_id)
+            if right.button("×", key=f"rm_chat_{chat_id}", help="删除这个对话"):
+                _delete_chat(chat_id)
 
 
 # ---------------------------------------------------------------- 右侧「模型设置」
@@ -1029,6 +1137,39 @@ def _render_sidebar(has_content: bool) -> DeltaGenerator:
         st.caption(f"模型 `{config.current().model}`")
         stats_slot = st.empty()
         stats_slot.caption(ss.session.stats())
+        # 用 checkbox 而不是 segmented_control：后者在 AppTest 里解析中文选项会崩
+        # （和输入框上方那个权限开关是同一个坑）。
+        st.checkbox(
+            "启用查询改写",
+            key="query_rewrite",
+            help="在发给主模型前自动进行指代补全、同义词扩展、多路改写或任务分解。",
+        )
+        st.checkbox(
+            "启用混合检索（向量+BM25）",
+            key="hybrid_search",
+            help="结合语义向量与 BM25 精确词匹配，通过 RRF 融合排序；"
+            "未配置向量模型时自动只用 BM25。",
+        )
+        emb_cfg = config.embedding_current()
+        if ss.get("hybrid_search"):
+            if emb_cfg.ready:
+                st.caption(f"向量模型 `{emb_cfg.model}`")
+            else:
+                st.caption("检索模式：BM25（配置向量模型后自动启用混合检索）")
+        else:
+            st.caption("检索模式：仅 BM25")
+        st.checkbox(
+            "启用联网搜索（Parallel MCP）",
+            key="web_search",
+            help="免 Key 连接 Parallel 新版 MCP，提供 web_search 与 web_fetch 联网能力。",
+        )
+        if ss.get("web_search"):
+            if ss.get("mcp_error"):
+                st.caption(f"联网工具连接失败：{ss.mcp_error}")
+            elif ss.get("mcp_tools"):
+                st.caption(f"联网工具：`{', '.join(ss.mcp_tools)}`")
+            else:
+                st.caption("联网工具：Parallel MCP（准备就绪）")
         if has_content and st.button("清空对话", use_container_width=True):
             # 文件也一起删：只清内存的话，刷新一下历史又回来了
             chats.delete(ss.chat_id or "")
@@ -1142,6 +1283,18 @@ def _run_turn(question: str, stats_slot: DeltaGenerator | None = None, page_titl
             trace_slot.markdown(trace.to_markdown())
             show_stats()
 
+        # 开关可能在这次 rerun 里刚被点过，而 Agent 是上一趟建的：跑之前同步一次。
+        # 用 getattr 而不是直接取属性——界面测试用 _ScriptedAgent 顶替了 ss.agent，
+        # 它没有 rewriter，硬取会 AttributeError。
+        rewriter = getattr(ss.agent, "rewriter", None)
+        if rewriter is not None:
+            rewriter.enabled = bool(
+                ss.get("query_rewrite", config.QUERY_REWRITE_ENABLED)
+            )
+        _sync_hybrid_mode()
+        if _sync_web_search() and hasattr(ss.agent, "update_system_prompt"):
+            ss.agent.update_system_prompt(_prompt_text())
+
         ss.agent.on_event = on_event
         answer = ss.agent.ask(question)
         show_stats()
@@ -1206,7 +1359,7 @@ def _render_body(has_content: bool, has_table: bool) -> None:
 
     _mode_control()
 
-    if not _can_chat(has_content):
+    if not _can_chat(has_content, web_search=bool(ss.get("web_search"))):
         st.caption("往左边传文件：临时上传的只留到这次会话结束，传进储藏区的会长期保留。")
         return
 
@@ -1214,6 +1367,8 @@ def _render_body(has_content: bool, has_table: bool) -> None:
         placeholder = "问关于这张表的任何问题，例如：各城市销售额排名前五"
     elif files.allow_write():
         placeholder = "让 Agent 处理本地文件，例如：把桌面的 test.txt 写成三条本周待办"
+    elif ss.get("web_search"):
+        placeholder = "联网搜索并分析，例如：查一下最近新能源车企销量并画图"
     else:
         placeholder = "问关于这些文件的问题，例如：这份报告的主要结论是什么"
     question = st.chat_input(placeholder)
@@ -1258,11 +1413,13 @@ def main() -> None:
     _init_state()
     _apply_pending_model_reset()
     mode_changed = _sync_mode()
+    _sync_hybrid_mode()
+    web_changed = _sync_web_search()
     _restore_chat()
     has_table = _apply_dataset()
-    if mode_changed or st.session_state.get("agent") is None:
+    if mode_changed or web_changed or st.session_state.get("agent") is None:
         # 没有数据也没有资料时，_apply_dataset 不会建 Agent；
-        # 而「完全工作区」下什么都能问，所以这里必须兜一次。
+        # 而「完全工作区」或「联网搜索」下什么都能问，所以这里必须兜一次。
         _refresh_prompt()
     _persist_chat()
     has_content = has_table or dt.has_documents()

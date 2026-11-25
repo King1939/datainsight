@@ -22,8 +22,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import files, readers
+from .. import files, images, readers
 from ..config import MAX_OBS_CHARS
+from . import data_tools as dt
 from . import registry
 
 _MAX_LIST = 80
@@ -68,24 +69,33 @@ def list_files(path: str = "") -> str:
 
 @registry.tool
 def read_file(path: str, part: int = 1) -> str:
-    """读一个本地文件的正文：文本、PDF、Word、PPT、Excel 都能读。
+    """读一个**本机磁盘路径**的文件正文或图片：文本、PDF、Word、PPT、Excel、图片都能读。
 
+    注意区分来源：本工具只读本机磁盘路径（如 桌面/xxx、~/xxx、C:/...）；
+    如果是用户上传到当前会话或储藏区的资料/图片，请用 read_document，不要用本工具。
     改文件之前必须先读一遍：本项目写入不做备份，凭猜测覆盖会把原内容丢掉。
     PPT 返回的是**结构化大纲**（第几页、什么版式、第几块文字），
     那些页码和块号就是 edit_pptx 的定位依据，不要自己数。
 
     Args:
-        path: 文件路径，支持 ~ 和 桌面 这类写法
+        path: 本机文件路径，支持 ~ 和 桌面 这类写法
         part: 第几段，从 1 开始；文件不长时只有 1 段
     """
     try:
         target = files.locate(path, must_exist=True)
     except files.FileError as exc:
+        bare_name = Path(str(path or "").replace("\\", "/").strip().strip("\"'")).name
+        if bare_name and dt.find_document(bare_name) is not None:
+            return (
+                f"错误：本机目录里没有 `{path}`，但当前会话已上传的资料中有 `{bare_name}`。"
+                f'请改用 read_document(name="{bare_name}", part=1) 读取已上传文件，不要用 read_file。'
+            )
         return f"错误：{exc}"
     if target.is_dir():
         return f"错误：`{target}` 是文件夹，不是文件。要看里面有什么，用 list_files。"
 
     suffix = target.suffix.lower()
+    doc_images: list[images.DocImage] = []
     if suffix == ".pptx":
         # 延迟导入：python-pptx 是**可选**依赖，顶层 import 会让只装了 pandas
         # 的人连程序都起不来——README 里"缺了就提示装一下"的承诺就假了。
@@ -97,11 +107,13 @@ def read_file(path: str, part: int = 1) -> str:
             head, pieces, note = describe_pptx(target)
         except Exception as exc:  # noqa: BLE001  损坏、加密、根本不是 pptx
             return f"错误：读不了 `{target.name}`（{exc}）。"
+        doc_images = readers.extract_images_for_chunks(target, pieces)
     else:
         try:
             doc = readers.extract(target, name=target.name)
             head = f"{doc.kind} · {doc.chars:,} 字 · {doc.parts} 段"
             pieces, note = doc.chunks, doc.note
+            doc_images = doc.images
         except readers.MissingDependency as exc:
             return f"错误：{exc}"
         except readers.DocumentError as exc:
@@ -118,7 +130,7 @@ def read_file(path: str, part: int = 1) -> str:
             if meta["clipped"]:
                 note = "文件较大，只读了前面一部分"
 
-    if not any(piece.strip() for piece in pieces):
+    if not any(piece.strip() for piece in pieces) and not doc_images:
         return f"`{target}` 里没有可读的内容：{note or '没有抽到文字'}"
 
     try:
@@ -132,9 +144,17 @@ def read_file(path: str, part: int = 1) -> str:
             f"收到的是 {part}。"
         )
 
+    part_images = [img for img in doc_images if img.part == part]
+    attached = images.attach_step_images(part_images) if part_images else []
+
     tail = f"\n\n（第 {part}/{len(pieces)} 段）"
     if part < len(pieces):
         tail += f"，后面还有 {len(pieces) - part} 段，用 part={part + 1} 继续"
+    if attached:
+        names = "、".join(img.name for img in attached)
+        tail += f"\n（本段附带 {len(attached)} 张图片：{names}，已提交给模型查看）"
+    elif doc_images and part == 1:
+        tail += f"\n（本文件共含 {len(doc_images)} 张图片，可在对应分段读取）"
     if note and part == 1:
         tail += f"\n注意：{note}"
 

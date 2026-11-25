@@ -147,6 +147,7 @@ def chat(
     tools: list[dict[str, Any]] | None = None,
     *,
     temperature: float = 0.0,
+    max_tokens: int | None = None,
     timeout: int = 90,
     retries: int = 2,
     on_delta: Callable[[str], None] | None = None,
@@ -163,6 +164,10 @@ def chat(
         "messages": messages,
         "temperature": temperature,
     }
+    # 只有显式传了才写进请求体。默认 None 时 payload 的键集合和以前一模一样，
+    # 现有流式 / 协议测试不受影响；前置改写那种「一句话就能答完」的调用才用得上。
+    if max_tokens is not None:
+        payload["max_tokens"] = int(max_tokens)
     if tools:
         payload["tools"] = tools
         payload["tool_choice"] = "auto"

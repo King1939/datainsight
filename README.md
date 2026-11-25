@@ -22,8 +22,9 @@
 [动作] make_chart
     {"sql": "...", "kind": "bar", "title": "各城市销售额"}
 [观察] 图表已生成：output/chart_xxx.png
-[最终回答] 上海销售额最高，241,589 元，比第二名北京高 33%……
 ```
+面板下面才是答案（它不进面板——同一句话显示两遍，成本没多花，但看着像两件事）：
+上海销售额最高，241,589 元，比第二名北京高 33%……
 
 ## 跑起来
 
@@ -36,6 +37,33 @@ python -m streamlit run app.py
 也可以只传资料文件（PDF / Word / PPT / Excel / 文本 / 日志）不提 CSV：这时 Agent 用 `read_document`
 分段读、`search_document` 定位，回答关于文档的问题。两类文件可以同时存在，一个问题里
 既能查表、也能查文档。
+
+`search_document` 走**混合检索**：一路 BM25 精确词匹配（错误码、专有名词、多个指标），
+一路向量语义（"未履行协议怎么算赔偿"这种换个说法也要能召回），两路各自排名后用
+RRF（倒数排名融合）合并——只看名次不看分数，所以不需要给 BM25 和余弦相似度做归一化，
+"两路都命中"的段落天然排在"只有一路命中"前面。向量这一路没配置、超时、限流时
+自动退回纯 BM25，检索本身不会失败，界面只多一句"向量检索暂时不可用"。
+
+向量模型和对话模型**完全分开**：当前对话模型 DeepSeek 没有 `/embeddings` 端点，
+复用它的配置只会 404。所以 `.env` 里另起一组（也可以存进 `data/embedding.json`）：
+
+```bash
+# 智谱 embedding-3（1024 维）
+EMBEDDING_PROVIDER=openai_compat
+EMBEDDING_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+EMBEDDING_MODEL=embedding-3
+EMBEDDING_API_KEY=你的key
+EMBEDDING_DIMENSIONS=1024
+
+# 或者本机 Ollama，不用 Key
+# EMBEDDING_BASE_URL=http://localhost:11434/v1
+# EMBEDDING_MODEL=bge-m3
+# （硅基流动：https://api.siliconflow.cn/v1 + BAAI/bge-m3；百炼：text-embedding-v3）
+```
+
+向量按**内容哈希**缓存在 `data/vault/embeddings.db`（SQLite）：同一段文字换个文件名、
+换个会话都复用同一份，不重复花钱；换模型或换维度则是另一套 key，互不覆盖。
+删掉这个库文件就能重建，只是下次要重新算一遍。侧边栏「启用混合检索」关掉即退回纯 BM25。
 
 **两个上传框，按"留多久"分**：临时上传只进这次会话（关掉页面就没了，不占额度），
 长期上传存进储藏区。两者都收同样的后缀——框分的是文件活多久，不是文件是什么类型；
@@ -107,7 +135,7 @@ python -m pip install -r requirements.txt        # 用同一个 python 装依赖
 cp .env.example .env                             # 填入 API_KEY（DeepSeek / 通义 / Kimi / 本地 Ollama 都行）
 
 python -m streamlit run app.py                   # 浏览器打开 localhost:8501
-python -m unittest discover -s tests             # 441 项回归测试，不需要 Key
+python -m unittest discover -s tests             # 628 项回归测试，不需要 Key
 ```
 
 ## 结构
@@ -123,6 +151,9 @@ datainsight/
 │   ├── sandbox.py       # ★ AST 白名单 + 子进程调度 + 超时 / 截断
 │   ├── _worker.py       # 子进程执行体（stdin 收 JSON，stdout 回 JSON）
 │   ├── readers.py       # ★ 多格式文本抽取（pdf / docx / pptx / txt / log）
+│   ├── bm25.py          # ★ BM25 精确词匹配 + 中英分词 + 防误召回闸门
+│   ├── embeddings.py    # ★ 子块向量化、OpenAI 兼容客户端、SQLite 向量缓存
+│   ├── hybrid_search.py # ★ 双路召回 + RRF 融合 + 静默降级
 │   ├── vault.py         # 储藏区：长期保存、200 MB 额度、同名覆盖
 │   ├── chats.py         # 对话历史：一轮一存、索引坏了能自愈、留最近 50 个
 │   ├── files.py         # ★ 本地文件读写 + 只读/完全工作区模式
@@ -143,7 +174,7 @@ datainsight/
 │   ├── sales.csv        # 测试固件（320 行），网页端不使用
 │   └── uploads/         # 临时上传的副本（切走会话就删，启动时再扫一遍遗留）
 ├── app.py               # 唯一入口（streamlit run 这层壳）
-├── tests/               # 441 项回归测试，不需要 pytest
+├── tests/               # 628 项回归测试，不需要 pytest
 └── docs/                # 每周任务书（week1–3 对应的脚本已移除）
 ```
 
@@ -185,6 +216,13 @@ prompt 里写着"电商订单表 sales"就是在给模型错误暗示。
 理由和 `run_sql` 的 `max_rows` 一样：**能力上限靠工具，成本上限靠接口设计**。
 一次把 40 页 PDF 塞进上下文，看着"方便"，实际上是让模型在一堆无关段落里找答案，
 又贵又更容易看错。
+
+`search_document` 自己也是照这条原则设计的：它**默认搜全部资料**（不必先猜是哪一份），
+多关键词按 OR 处理，但返回的只是三段"候选卡片"——文件名 + 段号 + 命中处一百来字，
+不给整段。一段是 2000 字，八处命中就能撑满 4000 字符的观察上限；给卡片则一次约 450 token，
+模型看完再决定读哪一段。整词一个都没命中时才降级到按字（bigram）模糊匹配，
+并且要求覆盖率 60% 以上、结果必须标明"这是字面相近"——没有这道闸，
+`不存在的词甲乙丙` 会靠"存在"两个字撞出几十段假候选。
 
 **7. 上传入口按格式自动分派，不按下游能力分叉。**
 第一版做了两个上传框："CSV"一个、"资料"一个。这是把内部实现（表 vs 文本）暴露成了
@@ -317,6 +355,7 @@ schema 里的办法。
 | 3 | 执行沙箱（AST 白名单 / 子进程 / 超时 / 自修复） | ✅ [任务书](docs/week3.md)（脚本已移除） |
 | 4 | Streamlit 界面：上传 CSV、实时思考过程、图表渲染 | ✅ [任务书](docs/week4.md) |
 | 4.5 | 多格式资料：PDF / Word / PPT / Excel / 文本 / 日志的抽取与分段检索 | ✅ |
+| 4.6 | 混合检索：Embedding 向量 + BM25 + RRF 融合，未配置向量时自动降级 | ✅ |
 | 5 | 50 条评测集 + 准确率迭代 + 可观测性 | ⬜ |
 
 ## 测试
@@ -327,3 +366,37 @@ python -m unittest discover -s tests -v
 
 用"按剧本返回的假模型"测循环，不联网、不花钱，也能覆盖多轮、重复调用、预算耗尽这些边界。
 界面层用 Streamlit 官方的 `AppTest` 直接执行脚本，断言"不抛异常、标题在、按钮按列名生成"。
+
+## 评测
+
+两个纯开发期脚本，不接进运行时、不改 `app/` 一行代码，也不引 ragas / trulens 这类外部框架。
+语料和 `data/sales.csv` 都是固定的（`data/make_data.py` 固定种子），所以同一份配置重复跑，指标应当稳定。
+
+### 检索召回：MRR@K / Hit@K / Recall@K
+
+```bash
+python eval/eval_retrieval.py                    # bm25 / vector / hybrid 三路对比
+python eval/eval_retrieval.py --compare-rewrite  # 前置查询改写前后对比
+```
+
+24 条标注按「文档名 + 段号」对齐，覆盖精确词、多词共现、自然语言语义、跨语言四类。
+
+### 生成质量：忠实度 + 答案相关性
+
+```bash
+python eval/eval_generation.py --matrix                       # 4 种配置 × 全部用例
+python eval/eval_generation.py --ids g01,g07 --rewrite        # 只跑指定用例
+python eval/eval_generation.py --predictions eval/predictions_gen.json   # 读快照复评，不重跑 Agent
+```
+
+- **忠实度**：把答案拆成原子事实声明，逐条对照本轮 `tool` 观察判
+  `supported / unsupported / contradicted`，得分 = 支持数 ÷ 声明总数；出现矛盾直接判 fail。
+  答案里的每条声明都能追到具体工具与原文片段，Bad Case 会打印出来。
+- **相关性**：让 Judge 只看答案反推 3 个它最可能回答的问题，再和实际提问算向量余弦取均值。
+  直接让模型打 0~1 分偏宽，逆向问题更稳；没配向量或接口异常时平滑退回 Judge 评分。
+- **拒答正交处理**：资料里确实没有的问题，诚实说"没找到"拿满忠实度、相关性记 0，
+  和"编一个答案"彻底分开；`expect_refusal` 与判定不符会单独计数。
+- `--matrix` 一次跑四组配置：`baseline`（关闭改写）、`basic_rewrite`（开改写）、
+  `colloquial`（口语化问法）、`cross_lingual`（英文问法），用同一批用例看前置改写救回了多少。
+- `--save-predictions` 落盘后，换 Judge 模型、调阈值都不用再花生成的钱。
+

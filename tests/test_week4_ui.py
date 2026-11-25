@@ -19,7 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from _isolation import isolate_uploads
+from _isolation import isolate_embeddings, isolate_uploads
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -59,6 +59,9 @@ def setUpModule() -> None:
     """
     global _CHAT_ROOT
     isolate_uploads()
+    # 上传处理函数会在后台给资料算向量。本机 .env 配了真实向量模型，
+    # 不隔离就等于测试期间发真实 HTTP 请求。
+    isolate_embeddings()
     if not HAS_APPTEST:
         return
     from app import chats

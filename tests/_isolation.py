@@ -39,3 +39,38 @@ def isolate_uploads(prefix: str = "uploads-test-") -> Path:
     unittest.addModuleCleanup(patcher.stop)
     unittest.addModuleCleanup(shutil.rmtree, root, ignore_errors=True)
     return root
+
+
+def isolate_embeddings(prefix: str = "emb-test-") -> Path:
+    """把向量模型配置清空、向量库挪到临时目录，模块跑完自动还原。
+
+    为什么必须有：本机 `.env` 里配了真实的 EMBEDDING_API_KEY。不做隔离的话，
+    `search_document` 一旦走混合检索就会真的发 HTTP 请求——单测变慢、要联网、
+    还会往用户真实的 `data/vault/embeddings.db` 里写向量。
+
+    隔离后 `EmbeddingConfig.ready` 为 False，混合检索自动退回纯 BM25，
+    既有文档用例因此仍是"纯离线 + 确定性"的。
+    """
+    from app import config, embeddings, hybrid_search
+
+    root = Path(tempfile.mkdtemp(prefix=prefix))
+    file_patch = mock.patch.object(config, "EMBEDDING_FILE", root / "embedding.json")
+    env_patch = mock.patch.object(config, "EMBEDDING_ENV_DEFAULTS", config.EmbeddingConfig())
+    file_patch.start()
+    env_patch.start()
+
+    def _restore() -> None:
+        file_patch.stop()
+        env_patch.stop()
+        config.reload_embedding()
+        embeddings.clear_caches()
+        hybrid_search.set_hybrid_enabled(config.HYBRID_SEARCH_ENABLED)
+
+    config.reload_embedding()
+    embeddings.clear_caches()
+    hybrid_search.set_hybrid_enabled(config.HYBRID_SEARCH_ENABLED)
+
+    # LIFO：先还原配置（_restore），最后删临时目录
+    unittest.addModuleCleanup(shutil.rmtree, root, ignore_errors=True)
+    unittest.addModuleCleanup(_restore)
+    return root

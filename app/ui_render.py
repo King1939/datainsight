@@ -1,6 +1,14 @@
 """把 Agent 事件翻译成界面能显示的东西。
-输入是 Agent._emit 发出的那六种事件：
-    step / tool_call / observation / final / warning / error
+输入是 Agent._emit 发出的这七种事件：
+    rewrite / step / tool_call / observation / final / warning / error
+
+其中 final **故意不翻译**：答案本来就会显示在面板下面的气泡里，
+再在「思考过程」里造一张「最终回答」卡片，等于同一句话在同一屏上出现两遍，
+而且卡片会被 MAX_BODY_CHARS 截断，跟下面那份完整答案对不上。
+
+rewrite 有一条额外的规矩：**快速通道（bypassed）返回 None**。用户说"继续"时
+改写层根本没调模型，为它画一张"查询改写 · 直接透传"的卡片纯属刷屏。
+真正做了改写的四种策略才值得占一行。
 """
 
 from __future__ import annotations
@@ -184,8 +192,86 @@ class TraceLog:
         return "\n\n---\n\n".join(i.to_markdown() for i in self.items)
 
 
+def _rewrite_item(payload: dict) -> TraceItem | None:
+    """前置改写事件 -> 一条展示记录。
+
+    三种展示形态：降级透传、正常透传、真的做了改写。前者要说清"没生效"，
+    中间那种只报一句理由（模型判断问题已经够清楚），后者才展开结构化结果。
+    """
+    strategy = payload.get("strategy") or ""
+    if payload.get("bypassed") and strategy == "pass_through":
+        # 控制短语 / 开关关闭：没有发生任何改写，不该在「思考过程」占位
+        return None
+
+    tokens = payload.get("tokens") or 0
+    latency = payload.get("latency") or 0
+
+    if payload.get("fallback"):
+        return TraceItem(
+            kind="rewrite",
+            title="查询改写 · 已降级透传",
+            body=f"改写未生效（{payload.get('error') or '已回退原问题'}），按原始问题继续。",
+            code=False,
+        )
+
+    if strategy == "pass_through":
+        return TraceItem(
+            kind="rewrite",
+            title=f"查询改写 · 直接透传（{tokens} tokens，{latency:.1f}s）",
+            body=payload.get("reason") or "问题表述清晰，直接执行。",
+            code=False,
+        )
+
+    label = payload.get("label") or strategy or "改写"
+    lines: list[str] = []
+    if payload.get("reason"):
+        lines.append(f"策略理由：{payload['reason']}")
+    if payload.get("rewritten_query"):
+        lines.append(f"改写问题：{payload['rewritten_query']}")
+
+    terms = payload.get("expanded_terms") or []
+    if terms:
+        lines.append("扩展术语：" + "、".join(f"`{term}`" for term in terms))
+
+    keywords = payload.get("search_keywords") or []
+    if keywords:
+        lines.append("建议检索词：" + "、".join(f"`{kw}`" for kw in keywords))
+
+    en_keywords = payload.get("english_keywords") or []
+    if en_keywords:
+        lines.append("英文检索词：" + "、".join(f"`{kw}`" for kw in en_keywords))
+
+    subs = payload.get("sub_queries") or []
+    if subs:
+        rows = []
+        for index, sub in enumerate(subs, start=1):
+            meta = [f"`{sub.get('id', '')}`", f"数据源：{sub.get('target_source', 'auto')}"]
+            if strategy == "multi_query":
+                meta.insert(1, f"视角：{sub.get('angle') or '未标注'}")
+            else:
+                depends = "、".join(sub.get("depends_on") or []) or "无"
+                meta.insert(1, f"依赖：{depends}")
+                if sub.get("purpose"):
+                    meta.append(f"目标：{sub['purpose']}")
+            rows.append(f"{index}. " + " · ".join(meta) + f"\n   {sub.get('query', '')}")
+        lines.append("子查询：\n" + "\n".join(rows))
+
+    return TraceItem(
+        kind="rewrite",
+        title=f"查询改写 · {label}（{tokens} tokens，{latency:.1f}s）",
+        body="\n\n".join(lines),
+        code=False,
+    )
+
+
 def build_item(kind: str, payload: dict) -> TraceItem | None:
-    """一种事件 -> 一条展示记录。返回 None 表示这类事件不用显示。"""
+    """一种事件 -> 一条展示记录。返回 None 表示这类事件不进「思考过程」。
+
+    final 固定返回 None：它不是"过程"，是结果，由界面直接渲染成答案气泡。
+    """
+    if kind == "rewrite":
+        return _rewrite_item(payload)
+
     if kind == "step":
         latency = payload.get("latency") or 0
         return TraceItem(
@@ -207,17 +293,18 @@ def build_item(kind: str, payload: dict) -> TraceItem | None:
         # chart / file 仍然从**原始返回**里取：正文被折叠了，嵌图和下载按钮不能跟着丢。
         name = payload.get("name", "")
         text = payload.get("text", "")
+        attached_imgs = payload.get("images") or []
+        title = f"返回结果（{tool_label(name)}）"
+        if attached_imgs:
+            title += f" · 附带 {len(attached_imgs)} 张图片"
         return TraceItem(
             kind="observation",
-            title=f"返回结果（{tool_label(name)}）",
+            title=title,
             body=observation_body(text, name),
             code=True,
             chart=extract_chart(text),
             file=extract_file(text),
         )
-
-    if kind == "final":
-        return TraceItem(kind="final", title="最终回答", body=payload.get("text", ""))
 
     if kind == "warning":
         return TraceItem(kind="warning", title="提前中止", body=payload.get("message", ""))

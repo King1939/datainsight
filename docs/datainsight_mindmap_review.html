@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataInsight 架构全景与面试复习图谱 — 对照《AI核心概念》思维导图</title>
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --surface: #ffffff;
+      --surface-2: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-soft: #64748b;
+      --primary: #2563eb;
+      --primary-soft: #dbeafe;
+      --green: #059669;
+      --green-bg: #d1fae5;
+      --green-border: #6ee7b7;
+      --amber: #d97706;
+      --amber-bg: #fef3c7;
+      --amber-border: #fcd34d;
+      --red: #dc2626;
+      --red-bg: #fee2e2;
+      --red-border: #fca5a5;
+      --purple: #7c3aed;
+      --purple-bg: #ede9fe;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+      --radius: 14px;
+    }
+
+    body.dark {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-2: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #cbd5e1;
+      --text-soft: #94a3b8;
+      --primary: #60a5fa;
+      --primary-soft: rgba(59, 130, 246, 0.18);
+      --green: #34d399;
+      --green-bg: rgba(16, 185, 129, 0.16);
+      --green-border: rgba(52, 211, 153, 0.4);
+      --amber: #fbbf24;
+      --amber-bg: rgba(245, 158, 11, 0.16);
+      --amber-border: rgba(251, 191, 36, 0.4);
+      --red: #f87171;
+      --red-bg: rgba(239, 68, 68, 0.16);
+      --red-border: rgba(248, 113, 113, 0.4);
+      --purple: #a78bfa;
+      --purple-bg: rgba(139, 92, 246, 0.16);
+      --code-bg: #020617;
+      --code-text: #e2e8f0;
+      --shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    /* Layout */
+    .app-shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .theme-btn {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    .search-box:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .filter-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .nav-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-soft);
+      font-weight: 700;
+      margin: 4px 0;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav-branch {
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.15s;
+    }
+    .nav-branch:hover {
+      background: var(--surface-2);
+    }
+    .nav-count {
+      font-size: 11px;
+      color: var(--text-soft);
+      font-weight: 500;
+    }
+
+    .nav-sublist {
+      padding-left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 6px;
+    }
+    .nav-subitem {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .nav-subitem:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-implemented { background: var(--green); }
+    .dot-partial { background: var(--amber); }
+    .dot-missing { background: var(--red); }
+
+    /* Main Content */
+    .main {
+      padding: 28px 36px 80px;
+      max-width: 1220px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 26px 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      letter-spacing: -0.02em;
+    }
+    .hero p {
+      margin: 0 0 18px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-soft);
+      font-weight: 600;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    /* Mind Map Card */
+    .mindmap-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 28px;
+    }
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .card-header-row h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .svg-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg);
+      padding: 8px;
+    }
+    svg#mindmap-svg {
+      display: block;
+      width: 100%;
+      min-width: 980px;
+      height: auto;
+    }
+    .mm-node { cursor: pointer; transition: opacity 0.15s; }
+    .mm-node:hover rect { stroke-width: 2.2; filter: brightness(0.97); }
+    .mm-node.dimmed { opacity: 0.22; }
+
+    /* Missing Summary Banner */
+    .missing-summary {
+      background: var(--surface);
+      border: 1px solid var(--red-border);
+      border-left: 5px solid var(--red);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow);
+    }
+    .missing-summary h2 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      color: var(--red);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .missing-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .missing-chip {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid var(--red-border);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .missing-chip:hover { text-decoration: underline; }
+
+    /* Branch Sections & Module Cards */
+    .branch-section {
+      margin-bottom: 36px;
+    }
+    .branch-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+    }
+    .branch-title {
+      font-size: 21px;
+      font-weight: 800;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .branch-tag {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .module-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .module-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s, border-color 0.2s;
+    }
+    .module-card.highlight {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+    .module-card.status-missing {
+      border-left: 5px solid var(--red);
+    }
+    .module-card.status-partial {
+      border-left: 5px solid var(--amber);
+    }
+    .module-card.status-implemented {
+      border-left: 5px solid var(--green);
+    }
+
+    .module-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .module-name {
+      font-size: 17px;
+      font-weight: 800;
+      margin: 0;
+    }
+    .module-subnodes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0 12px;
+    }
+    .subnode-pill {
+      font-size: 12px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .subnode-pill.is-missing {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red);
+    }
+    .subnode-pill.is-partial {
+      background: var(--amber-bg);
+      border-color: var(--amber-border);
+      color: var(--amber);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .badge-implemented {
+      background: var(--green-bg);
+      color: var(--green);
+      border-color: var(--green-border);
+    }
+    .badge-partial {
+      background: var(--amber-bg);
+      color: var(--amber);
+      border-color: var(--amber-border);
+    }
+    .badge-missing {
+      background: var(--red-bg);
+      color: var(--red);
+      border-color: var(--red-border);
+    }
+
+    .file-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .file-chip {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .module-body {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .module-body p {
+      margin: 8px 0;
+    }
+    .module-body ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    .module-body li {
+      margin-bottom: 6px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface-2);
+      padding: 1px 5px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    .tradeoff-box {
+      margin-top: 12px;
+      background: var(--surface-2);
+      border-left: 3px solid var(--primary);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+    .tradeoff-box strong {
+      color: var(--primary);
+    }
+
+    .missing-box {
+      margin-top: 12px;
+      background: var(--red-bg);
+      border: 1px solid var(--red-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    /* Inline Glossary Terms */
+    .term {
+      border-bottom: 1.5px dashed var(--purple);
+      color: var(--purple);
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 2px;
+      border-radius: 3px;
+      transition: background 0.15s;
+    }
+    .term:hover {
+      background: var(--purple-bg);
+    }
+
+    /* Interview Q&A */
+    details.qa {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      overflow: hidden;
+    }
+    details.qa summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    details.qa summary::-webkit-details-marker { display: none; }
+    details.qa summary::after {
+      content: "展开面试参考答法 ▾";
+      font-size: 12px;
+      color: var(--primary);
+      font-weight: 600;
+    }
+    details.qa[open] summary::after {
+      content: "收起 ▴";
+    }
+    .qa-content {
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Glossary Section */
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 12px;
+    }
+    .glossary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .glossary-term {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--purple);
+      margin-bottom: 4px;
+    }
+    .glossary-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    /* Term Modal / Popover */
+    .term-toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      max-width: 390px;
+      background: var(--surface);
+      border: 1.5px solid var(--purple);
+      border-radius: 14px;
+      padding: 14px 16px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.22);
+      z-index: 100;
+      display: none;
+    }
+    .term-toast.visible { display: block; animation: popIn 0.16s ease-out; }
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .term-toast-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .term-toast-title {
+      font-weight: 800;
+      color: var(--purple);
+      font-size: 14px;
+    }
+    .term-toast-close {
+      border: none;
+      background: transparent;
+      color: var(--text-soft);
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .term-toast-body {
+      font-size: 13px;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 960px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: relative;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .main { padding: 18px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div>
+          <div class="brand-title">DataInsight 复习图谱</div>
+          <div class="brand-sub">对照《AI核心概念》思维导图</div>
+        </div>
+        <button class="theme-btn" id="theme-toggle" type="button">深色</button>
+      </div>
+
+      <input
+        id="search-input"
+        class="search-box"
+        type="search"
+        placeholder="搜索模块、文件名、专有名词、面试点..."
+      />
+
+      <div>
+        <div class="nav-section-title">实现状态筛选</div>
+        <div class="filter-group" id="filter-group">
+          <button class="filter-btn active" data-filter="all">全部</button>
+          <button class="filter-btn" data-filter="implemented">已实现</button>
+          <button class="filter-btn" data-filter="partial">部分/变体</button>
+          <button class="filter-btn" data-filter="missing">导图有·项目无</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="nav-section-title">导图目录导航</div>
+        <nav class="nav-list" id="sidebar-nav"></nav>
+      </div>
+
+      <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); font-size:12px; color:var(--text-soft);">
+        提示：点击文中 <span class="term" data-term="ReAct">紫色虚线专有名词</span> 可随时弹出简短释义，也可跳转到文末「专有名词速查表」。
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <section class="hero">
+        <h1>DataInsight 项目全景拆分与面试复习手册</h1>
+        <p>
+          严格按照 PDF《AI核心概念》思维导图的 <strong>6 大主干</strong> 与 <strong>24 个子模块</strong> 对 <code>datainsight</code> 代码库逐层拆解：讲清楚“怎么实现的”、“为什么这么取舍”，并把<strong>思维导图里有而本项目未实现的模块</strong>高亮标出，附带常见面试追问与专有名词即时解释。
+        </p>
+        <div class="stats-grid" id="stats-grid"></div>
+      </section>
+
+      <!-- Interactive Mind Map -->
+      <section class="mindmap-card">
+        <div class="card-header-row">
+          <h2>交互式架构映射图（点击任意节点定位到下方详解）</h2>
+          <div class="legend">
+            <span class="legend-item"><span class="dot dot-implemented"></span> 项目已实现</span>
+            <span class="legend-item"><span class="dot dot-partial"></span> 部分实现 / 轻量变体</span>
+            <span class="legend-item"><span class="dot dot-missing"></span> 导图有 · 项目无</span>
+          </div>
+        </div>
+        <div class="svg-wrap">
+          <svg id="mindmap-svg" viewBox="0 0 1280 760" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </section>
+
+      <!-- Missing Modules Highlight -->
+      <section class="missing-summary" id="missing-summary">
+        <h2>⚠️ 思维导图中有、但 DataInsight 项目中缺失的模块清单</h2>
+        <div style="font-size:13px; color:var(--text-muted);">
+          面试时面试官常会拿通用 AI 知识图谱反问“你的项目里有没有做 X？为什么没做？”。点击下方标签直接查看“为什么没做”以及“如果要补齐该如何设计”：
+        </div>
+        <div class="missing-chips" id="missing-chips"></div>
+      </section>
+
+      <!-- Branch Details -->
+      <div id="branches-container"></div>
+
+      <!-- Glossary Section -->
+      <section class="branch-section" id="glossary-section">
+        <div class="branch-header">
+          <h2 class="branch-title">📚 专有名词速查表（Glossary）</h2>
+          <span class="branch-tag">面试概念一句话解释</span>
+        </div>
+        <div class="glossary-grid" id="glossary-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Floating Glossary Popover -->
+  <div class="term-toast" id="term-toast" role="dialog" aria-live="polite">
+    <div class="term-toast-head">
+      <span class="term-toast-title" id="term-toast-title"></span>
+      <button class="term-toast-close" id="term-toast-close" type="button">✕</button>
+    </div>
+    <p class="term-toast-body" id="term-toast-body"></p>
+  </div>
+
+  <script>
+    const GLOSSARY = {
+      "自回归生成": "大模型逐个 Token 预测下一个词元的生成方式：每生成一个新 Token，就把它拼接到输入末尾继续预测下一个，因此流式输出天然是一字一字往外吐的。",
+      "Token": "大模型文本处理的基本切分单位（词元），通常对应一个常见词、子词或 1~2 个汉字。API 计费与上下文窗口容量均按 Token 计算。",
+      "上下文窗口": "大模型单次前向推理最多能同时容纳的输入 + 输出 Token 总数上限（Context Window），超出会被截断或触发报错。",
+      "Temperature": "采样温度参数，控制输出分布的随机性。0 表示几乎完全贪心/确定性输出（本项目调工具与改写统一设为 0.0），越高则越发散。",
+      "采样参数": "大模型解码阶段的控制参数，常见有 temperature（控制随机性）、top_p（核采样概率阈值）与 max_tokens（单次最大生成长度）。",
+      "结构化输出": "约束大模型严格按预定义字段与数据类型（如 JSON Object / JSON Schema）输出，便于下游程序确定性解析与校验，减少正则抽取脆弱性。",
+      "SSE": "Server-Sent Events，服务端向客户端单向持续推送文本流的标准 HTTP 协议。OpenAI 兼容接口设置 stream=true 即通过 SSE 逐片返回 delta。",
+      "Function Calling": "大模型原生工具调用协议：请求体携带 tools 的 JSON Schema 定义，模型不直接回答而是输出结构化 tool_calls 意图（工具名 + JSON 参数），由宿主执行后以 role:tool 回传。",
+      "JSON Schema": "用于描述 JSON 数据结构的规范（字段名、类型 type、必填 required、枚举 enum 等）。本项目由 app/schema.py 自动从函数签名与 docstring 派生。",
+      "TypedDict": "Python typing 模块的类型注解，用于声明字典中各个键的固定名称与类型。用于给对象数组（如 PPT 每页结构）生成精确 properties。",
+      "Transformer": "基于自注意力机制（Self-Attention）的深度神经网络架构，抛弃 RNN 序列循环，实现序列并行编码，是现代 LLM 的底座。",
+      "自注意力机制": "Self-Attention，通过 Query/Key/Value 计算序列内任意两个 Token 的相关性权重，从而直接捕获长距离上下文依赖。",
+      "多头注意力": "Multi-Head Attention，把 Q/K/V 投影到多个低维子空间并行做注意力计算再拼接，让模型同时关注语法、语义、指代等不同特征。",
+      "位置编码": "Positional Encoding（如 RoPE 旋转位置编码），由于注意力本身无序，需显式注入 Token 的位置或相对距离信息。",
+      "SFT / LoRA": "SFT（监督微调）用指令-回答对调整模型权重适配下游任务；LoRA 是参数高效微调技术，冻结主权重仅训练低秩旁路矩阵以省显存。",
+      "RLHF": "基于人类反馈的强化学习（如 PPO/DPO），先训练奖励模型拟合人类偏好，再微调大模型使其输出更对齐人类期望（有用、诚实、无害）。",
+      "ReAct": "Reasoning + Acting 范式：Agent 在循环中交替进行思考推理（Reasoning）、调用工具（Acting）和读取环境反馈（Observation），直到得出最终答案。",
+      "Plan-and-Execute": "先规划再执行模式：先由 Planner 将复杂任务拆解成完整步骤计划，再交给 Executor 逐步执行并根据结果动态调整。",
+      "Kahn算法 / DAG": "DAG 是有向无环图（Directed Acyclic Graph）；Kahn 算法通过统计节点入度为 0 的队列不断弹出节点，完成拓扑排序并检测/打断环路。",
+      "ContextVar": "Python 标准库 contextvars 提供的上下文局部存储机制，能在多线程/协程并发（如 Streamlit 多标签页）下隔离请求状态而不污染全局。",
+      "AST": "Abstract Syntax Tree（抽象语法树）。Python 的 ast.parse() 将代码文本解析为语法树，无需执行代码即可静态拦截 import/eval/写方法。",
+      "Guardrail": "护栏：针对大模型或代码执行的策略约束与边界拦截（如 AST 白名单、SQL 写操作拦截、超时强杀），定位是防误操作而非绝对安全边界。",
+      "RAG": "Retrieval-Augmented Generation（检索增强生成）：先从外部知识库检索相关片段拼入上下文，再让模型据此作答，缓解幻觉与私有知识盲区。",
+      "BM25": "经典基于词频饱和度（k1）、文档长度归一化（b）与逆文档频率（IDF）的精确词匹配相关性打分算法。",
+      "Lucene IDF": "非负修正版 IDF 公式 ln(1 + (N - df + 0.5)/(df + 0.5))，解决小语料（如仅 2 段文档）下标准 BM25 IDF 出现负数导致倒扣分的工程坑。",
+      "2-gram": "二元字切片（Bigram），把连续中文字符串按相邻两字滑动切分（如“区块链”→“区块”“块链”），作为未装 jieba 时的零依赖中文分词降级方案。",
+      "父子切块": "Parent-Child Chunking：索引/向量化使用短子块（500 字）保证语义聚焦、不超模型窗口；阅读/返还使用完整父段（2000 字）保留上下文。",
+      "Embedding": "将离散文本映射为连续稠密语义向量的表示方法，语义相近的文本在向量空间中距离更近。",
+      "L2 归一化": "将向量除以自身的欧几里得范数使其模长为 1。归一化后，两个向量的点积在数学上严格等于余弦相似度。",
+      "MaxSim": "最大相似度聚合：一个父段包含多个子块时，取所有子块与查询余弦相似度的最大值作为父段得分，避免局部答案被长段无关背景稀释。",
+      "RRF": "Reciprocal Rank Fusion（倒数排名融合）：按 1 / (k + rank) 仅依据各路召回的名次融合排序（本项目 k=60），无需对 BM25 与余弦分数做量纲归一化。",
+      "ANN": "Approximate Nearest Neighbor（近似最近邻搜索，如 HNSW/IVF），在百万级以上向量库中牺牲极小精度换取毫秒级召回，小体量下可用精确矩阵乘法替代。",
+      "Reranker": "重排序模型（多为 Cross-Encoder 交叉编码器），将查询与候选文档拼接后联合注意力交互打分，精度高于双塔 Embedding 但延迟更高。",
+      "GraphRAG": "结合知识图谱的 RAG：离线抽取实体与关系边构图，检索时沿实体关系路径做多跳推理或社区摘要，适合全局总结与跨文档关系问答。",
+      "Query Rewriting": "前置查询改写：在主检索/主 Agent 之前，通过指代消解、同义词扩展、多视角拆分或依赖分解，将口语/残缺提问转为自包含高质量指令。",
+      "MRR@K / Hit@K / Recall@K": "检索评估指标：MRR@K 看首个相关段排名的倒数均值（关注排多靠前）；Hit@K 看 Top-K 是否至少命中 1 个；Recall@K 看找全了多少相关段。",
+      "Faithfulness": "忠实度：生成答案中的原子事实声明有多少条能在工具返回的上下文中找到支撑，是“有没有幻觉”的量化指标。",
+      "Answer Relevance": "答案相关性：衡量模型是否正面完整回答了用户问题。本项目主路径通过“逆向反推 3 个假设问题 + 向量余弦”来客观评估。",
+      "MCP": "Model Context Protocol（模型上下文协议），由 Anthropic 提出的开放标准，通过 JSON-RPC 2.0 统一连接 AI 应用（Client）与外部工具/数据源（MCP Server）。",
+      "Skills": "模块化技能包规范（通常为含 SKILL.md、脚本与参考文件的目录），将垂直领域的 SOP 与操作指南按需渐进式注入上下文，区别于静态大一统 Prompt。",
+      "Error-as-Data": "“错误即数据”的 Agent 工程思想：工具异常不崩溃，而是转为带行号和修复提示的字符串观察返回给模型，让模型在下一轮自我纠错。",
+      "VLM / OCR": "VLM 是视觉语言模型（可理解图片、图表和版面）；OCR 是光学字符识别（从扫描件图片中提取文字）。本项目暂不支持二者。"
+    };
+
+    const BRANCHES = [
+      {
+        id: "llm-basics",
+        title: "一、大模型基础",
+        side: "right",
+        tag: "底层机制 · Prompt · 工具协议",
+        modules: [
+          {
+            id: "llm-runtime",
+            name: "运行机制",
+            status: "partial",
+            statusLabel: "客户端对接 · 底层推理靠外部 API",
+            subnodes: [
+              { text: "自回归生成（流式对接）", state: "implemented" },
+              { text: "Token 与子词切分（仅消费 API 计数）", state: "missing" },
+              { text: "上下文窗口（应用层预算与截断管理）", state: "implemented" },
+              { text: "采样参数（temperature / max_tokens）", state: "partial" }
+            ],
+            files: ["app/llm.py", "app/config.py", "app/session.py"],
+            summary: `
+              <p>项目不自研推理引擎，而是通过标准库 <code>urllib.request</code> 手写 OpenAI 兼容 HTTP 客户端 <code>app/llm.py:chat()</code> 对接外部模型（如 DeepSeek、智谱、Ollama 等）：</p>
+              <ul>
+                <li><strong><span class="term" data-term="自回归生成">自回归生成</span>与流式接收</strong>：传入 <code>on_delta</code> 回调时开启 <code>stream=True</code> 与 <code>stream_options={"include_usage": True}</code>，在 <code>_read_stream()</code> 中按行解析 <span class="term" data-term="SSE">SSE</span> <code>data:</code> 块，增量拼接文本与流式 <code>tool_calls</code>（按 <code>index</code> 拼装 <code>name</code> 与 <code>arguments</code>）。</li>
+                <li><strong><span class="term" data-term="采样参数">采样参数</span></strong>：主对话与改写统一固定 <code>temperature=0.0</code>（追求 SQL/JSON 生成稳定性），并按需传入 <code>max_tokens</code>（连通性探针 <code>probe()</code> 传 <code>1</code>、改写器传 <code>600</code>）；未暴露 <code>top_p</code> / <code>frequency_penalty</code>。</li>
+                <li><strong><span class="term" data-term="上下文窗口">上下文窗口</span>控制</strong>：由于不直接运行模型，项目在应用层通过硬阈值守住窗口：入库文档截断 <code>MAX_DOC_CHARS=200_000</code>、单次读段 <code>DOC_CHUNK_CHARS=2000</code>、单次工具观察截断 <code>MAX_OBS_CHARS=4000</code>、单轮问答预算 <code>TOKEN_BUDGET=5_000_000</code>，并累计 API 返回的 <code>prompt_tokens</code> / <code>completion_tokens</code>。</li>
+                <li><strong>缺失部分（Token 与子词切分）</strong>：项目<strong>未集成 BPE / WordPiece（如 tiktoken）分词器</strong>，无法在请求前精确计算 Token 数，仅以字符数近似估算。（注：<code>app/bm25.py</code> 中的 jieba/2-gram 是检索侧分词，并非 LLM 子词切分）。</li>
+              </ul>
+            `,
+            tradeoff: "为什么不用 openai 官方 SDK 或 LangChain？一次 HTTP 请求 + 50 行 SSE 解析就能把超时、429/5xx 指数退避重试（2s/4s）、流式 tool_call 拼接、401/404 语义诊断全掌控在自己手里，面试时能讲清协议每一字节。",
+            qa: {
+              q: "面试官追问：流式响应下，模型返回 tool_calls 是怎么拼接的？出现断流或非标准字段怎么办？",
+              a: "流式 delta 里的 tool_calls 是一个列表，每个分片带有 index。第一片带 id 和 function.name，后续分片只带 function.arguments 碎片。我们用 calls.setdefault(index, ...) 按 index 累积拼接，流结束后按 index 排序还原。此外部分模型会带 reasoning_content 等非标准字段，下一轮直接塞回 messages 会触发 400，因此用 normalize_assistant() 只保留 role/content/tool_calls。"
+            }
+          },
+          {
+            id: "prompt-eng",
+            name: "Prompt 工程",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "四要素框架（角色/上下文/策略/约束）", state: "implemented" },
+              { text: "结构化输出（JSON 强制与容错）", state: "implemented" }
+            ],
+            files: ["app/agent.py", "app/query_rewrite.py", "eval/answer_metrics.py"],
+            summary: `
+              <ul>
+                <li><strong>动态四要素框架（<code>make_system_prompt()</code>）</strong>：按当前会话是否有数据表、有哪些资料文件、是否处于「完全工作区」动态拼装四段内容：<em>身份定义 → 当前数据源元信息（表名 dataset/列名/行数 + 文档清单）→ 工具选择策略 → 硬性规则</em>。遵循“没有的能力一个字都不提”，避免模型去猜不存在的表或写文件权限。</li>
+                <li><strong><span class="term" data-term="结构化输出">结构化输出</span></strong>：在两个关键环节强制 JSON 输出：
+                  <br>1) 前置改写器 <code>REWRITE_SYSTEM_PROMPT</code>：要求仅输出包含 <code>strategy / reason / rewritten_query / expanded_terms / search_keywords / english_keywords / sub_queries</code> 的 JSON 对象，并用 <code>_load_json()</code>（剥离 Markdown 围栏 + 提取首尾花括号）容错解析；
+                  <br>2) 离线评测员 <code>EVAL_SYSTEM_PROMPT</code>：要求将答案拆解为 <code>claims</code> 原子事实数组与 <code>generated_questions</code>，便于程序自动化打分。</li>
+              </ul>
+            `,
+            tradeoff: "为什么上传新文档或切换模式后必须调用 update_system_prompt()？因为 system 消息只在首轮插入 session.messages[0]，如果不连同消息数组第 0 条一起替换，模型会持续拿着旧的文件清单产生“文件不存在”的幻觉。",
+            qa: {
+              q: "面试官追问：如果大模型没有严格遵守“只输出纯 JSON”的指令，加了 Markdown 代码块或前后废话怎么办？",
+              a: "在 query_rewrite.py 和 answer_metrics.py 中，我们不直接 json.loads(raw)，而是先剥离 ```json ... ``` 围栏，再截取第一个 '{' 到最后一个 '}' 之间内容解析；若仍失败则走静默降级（改写退回 pass_through 透传，评测单条记 fallback），绝不阻塞或炸掉主链路。"
+            }
+          },
+          {
+            id: "tool-calling",
+            name: "工具调用 (Tool Calling)",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "模型生成调用意图（Function Schema 自动派生）", state: "implemented" },
+              { text: "典型链路（意图 → 校验执行 → role:tool 回传）", state: "implemented" }
+            ],
+            files: ["app/schema.py", "app/tools/registry.py", "app/tools/__init__.py", "app/agent.py"],
+            summary: `
+              <ul>
+                <li><strong>Schema 自动派生（<code>app/schema.py</code>）</strong>：通过 <code>inspect.signature</code> + <code>get_type_hints</code> + <code>parse_docstring</code> 把普通 Python 函数自动翻译成 OpenAI <span class="term" data-term="Function Calling">Function Calling</span> 的 <span class="term" data-term="JSON Schema">JSON Schema</span>。支持基础类型、<code>Literal[...]</code> 转 <code>enum</code>、<code>Optional</code> / <code>X | None</code> 排除必填、以及递归展开 <span class="term" data-term="TypedDict">TypedDict</span>（如 <code>make_pptx</code> 的 <code>Slide</code> 结构）。</li>
+                <li><strong>装饰器注册与热发现（<code>app/tools/__init__.py</code>）</strong>：<code>@registry.tool</code> 注册函数并强制检查必须有 docstring；<code>load_missing()</code> 在每次界面 rerun 时用 <code>pkgutil.iter_modules</code> 扫描新工具文件补齐导入。</li>
+                <li><strong>典型调用链路</strong>：<code>chat(messages, tools=specs, tool_choice="auto")</code> → 模型返回 <code>tool_calls</code> → <code>ToolRegistry.call()</code> 解析 JSON、拦截未知参数与缺失必填项、捕获异常并截断至 4000 字 → 写入 <code>{"role": "tool", "tool_call_id": ..., "content": observation}</code> → 模型继续推理。</li>
+              </ul>
+            `,
+            tradeoff: "结构由签名派生，语义由人写：消除了代码签名与手写 JSON 两份定义互相漂移的隐患；同时在 ToolRegistry.call() 严格校验 unknown/missing 参数并返回指导性报错字符串，防止 TypeError 崩溃。",
+            qa: {
+              q: "面试官追问：为什么支持 TypedDict 递归解析对 PPT 工具很关键？",
+              a: "以前 list[dict] 只会被翻译成 items: {type: object}，模型不知道对象里应该填 title 还是 heading，极易缺参报错。加上 _is_typed_dict() 递归展开 properties 与 __required_keys__ 后，模型能准确生成每页幻灯片的合法结构，并且按声明顺序固定字段顺序，避免 Schema 抖动。"
+            }
+          },
+          {
+            id: "transformer",
+            name: "Transformer 架构",
+            status: "missing",
+            statusLabel: "导图有 · 本项目未实现",
+            subnodes: [
+              { text: "自注意力机制", state: "missing" },
+              { text: "多头注意力", state: "missing" },
+              { text: "位置编码", state: "missing" },
+              { text: "前馈网络与层归一化", state: "missing" }
+            ],
+            files: [],
+            summary: `
+              <p><strong>模块内容</strong>：<span class="term" data-term="Transformer">Transformer</span> 的核心组件——<span class="term" data-term="自注意力机制">自注意力机制</span>（Scaled Dot-Product Attention）、<span class="term" data-term="多头注意力">多头注意力</span>（MHA / GQA）、<span class="term" data-term="位置编码">位置编码</span>（如 RoPE）以及前馈网络（FFN）与残差/层归一化（RMSNorm / LayerNorm）。</p>
+            `,
+            missingReason: `
+              <strong>为什么项目中没有？</strong> DataInsight 是<strong>应用层 AI Agent 系统</strong>，不涉及神经网络算子与底层模型结构开发。对话模型通过 HTTP API 调用云端大模型（如 DeepSeek），本地可选向量模型仅直接复用 <code>sentence-transformers</code> 封装好的预训练编码器。
+              <br><strong>面试复习要点</strong>：虽然项目没写，但面试“大模型基础”必考！需熟背注意力公式 <code>softmax(QK^T / sqrt(d_k))V</code>、为什么要除以 <code>sqrt(d_k)</code>（防止点积方差过大落入 softmax 梯度饱和区）、KV Cache 原理与 RoPE 相对位置编码优势。
+            `,
+            qa: {
+              q: "面试高频题：为什么 Self-Attention 要除以 sqrt(d_k)？KV Cache 缓存了什么？",
+              a: "当维度 d_k 较大时，Q 和 K 的点积均值 0 方差为 d_k，数值极大导致 softmax 分布极其尖锐、梯度趋近于 0，除 sqrt(d_k) 把方差拉回 1。在自回归推理时，历史 Token 的 Key 和 Value 矩阵不会随新 Token 生成而改变，缓存 K/V 可将单步推理复杂度从 O(N²) 降至 O(N)。"
+            }
+          },
+          {
+            id: "pretrain-finetune",
+            name: "预训练与微调",
+            status: "missing",
+            statusLabel: "导图有 · 本项目未实现",
+            subnodes: [
+              { text: "预训练学习通用知识", state: "missing" },
+              { text: "微调适配下游任务", state: "missing" },
+              { text: "监督微调与 RLHF", state: "missing" }
+            ],
+            files: [],
+            summary: `
+              <p><strong>模块内容</strong>：包括海量无标注语料上的 Next Token Prediction 预训练、<span class="term" data-term="SFT / LoRA">SFT（监督微调）/ LoRA</span> 参数高效微调、以及对齐人类偏好的 <span class="term" data-term="RLHF">RLHF</span>（PPO / DPO）。</p>
+            `,
+            missingReason: `
+              <strong>为什么项目中没有？</strong> 本项目全部采用 <strong>Prompt 工程 + Query Rewrite + RAG + Tool Calling</strong> 的非参数化适配路径来解决领域分析问题，没有自建训练语料管线，也没有对基座模型进行权重微调。
+              <br><strong>扩展思路（如果面试官问什么时候需要微调）</strong>：当用户有大量固定格式的行业专用 SQL 方言或私有函数调用规范、且通过 Prompt + Few-shot 依然出错率高或 Prompt 过长费 Token 时，可以收集本项目沉淀的真实 <code>data/chats/</code> 成功轨迹做 SFT/LoRA 微调小模型（如用于前置 QueryRewriter 路由，降低延迟与成本）。
+            `,
+            qa: {
+              q: "面试高频题：你的项目为什么选 RAG + Prompt 而不是微调（Fine-tuning）？",
+              a: "1) 知识动态性：用户上传的 CSV 和 PDF 随时变化，微调无法注入实时私有数据且易遗忘；2) 幻觉与可追溯：RAG 配合忠实度评测能做到每个数字溯源到文档段号或 SQL；3) 成本与灵活性：通用强模型（如 DeepSeek）的 Function Calling 能力足够强，通过清晰的 Schema 和 Prompt 约束即可达到 0 矛盾率（评测 64 次问答 0 矛盾）。"
+            }
+          }
+        ]
+      },
+
+      {
+        id: "agent",
+        title: "二、Agent 智能体",
+        side: "right",
+        tag: "手写无框架 · ReAct · 上下文工程",
+        modules: [
+          {
+            id: "agent-def",
+            name: "定义与公式",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "Agent = LLM + 规划 + 记忆 + 工具 + 观察闭环", state: "implemented" }
+            ],
+            files: ["app/agent.py", "app/session.py", "app/tools/registry.py"],
+            summary: `
+              <p>项目刻意<strong>不依赖 LangChain / LlamaIndex</strong> 等黑盒框架，在 <code>app/agent.py</code> 手写完整 Agent 架构：<code>Agent(session, llm, registry, max_steps, token_budget, on_event, system_prompt, session_key, rewriter)</code>。</p>
+              <p>每一次 <code>Agent.ask(question)</code> 都是一个感知环境（表结构/文档目录/文件权限）→ 决策调用工具 → 获取工具观察 → 自我纠错收敛的闭环系统。</p>
+            `,
+            tradeoff: "面试亮点：手写 Agent 核心代码不到 360 行，使每一层的 Token 边界、错误回传、会话隔离、预算控制完全透明可控，避免引入框架的隐式 Prompt 注入与调试黑盒。",
+            qa: {
+              q: "面试官追问：相比直接用 LangChain 的 AgentExecutor，你手写 Agent 带来了哪些控制力？",
+              a: "1) 精确控制 session.messages 与 request_messages 隔离（改写模板不污染历史）；2) 定制三道刹车（步数、单轮预算、签名级重复检测）和 _stop() 闭合非法序列；3) 无缝插入 contextvars 实现多标签页 DuckDB 数据隔离；4) 单测可直接注入 ScriptedLLM 剧本精准断言每条消息与事件序列。"
+            }
+          },
+          {
+            id: "agent-core",
+            name: "核心架构（推理/记忆/工具/观察）",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "推理与规划（隐式 ReAct + 前置 DAG）", state: "implemented" },
+              { text: "记忆（Session + Chats + Vault）", state: "implemented" },
+              { text: "工具（7 大模块 15 个注册工具）", state: "implemented" },
+              { text: "观察（统一文本契约 + 截断）", state: "implemented" }
+            ],
+            files: ["app/agent.py", "app/tools/", "app/session.py", "app/chats.py", "app/vault.py"],
+            summary: `
+              <ul>
+                <li><strong>推理与规划</strong>：多步循环内的动态推理 + <code>QueryRewriter</code> 的前置分解（<code>DECOMPOSITION</code>）与多视角拆分（<code>MULTI_QUERY</code>）。</li>
+                <li><strong>记忆</strong>：<code>Session</code> 内存态消息列表 + <code>chats.py</code> 持久化 + <code>vault.py</code> 资料库。</li>
+                <li><strong>工具</strong>：涵盖数据表（<code>inspect_table</code>, <code>run_sql</code>）、计算（<code>run_python</code>）、文档 RAG（<code>list_documents</code>, <code>read_document</code>, <code>search_document</code>）、可视化与导出（<code>make_chart</code>, <code>make_mindmap</code>, <code>make_pptx</code>, <code>edit_pptx</code>）、本机工作区（<code>list_files</code>, <code>read_file</code>, <code>write_text_file</code>, <code>find_program</code>, <code>open_file</code>）共 15 个工具。</li>
+                <li><strong>观察</strong>：统一返回紧凑文本（如 SQL 返回 Markdown 表格、文档检索返回候选卡片、沙箱返回带行号的 <code>ExecResult.as_observation()</code>），上限 <code>MAX_OBS_CHARS=4000</code>。</li>
+              </ul>
+            `,
+            tradeoff: "工具返回设计是面向模型而不是面向人类：例如 search_document 会在卡片末尾直接拼好下一步调用示例 read_document(name=\"...\", part=...)，减少模型自己拼错文件名或参数浪费步数。",
+            qa: {
+              q: "面试官追问：为什么 make_chart 和 mindmap_tools 要拆成两个工具？PPT 为什么要单独写 edit_pptx？",
+              a: "1) 输入形状不同：make_chart 吃两列数（sql 或 labels/values），make_mindmap 吃树形路径列表 paths；合在一起会让模型每画一次图先做互斥参数选择题，出错率飙升。2) 改 PPT 走增量编辑（页码+块号，带 .bak 备份与原子回滚）而不是重跑 make_pptx，避免把用户未修改页全部覆盖重建。"
+            }
+          },
+          {
+            id: "agent-loop",
+            name: "运行循环",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "多步循环与终止条件", state: "implemented" },
+              { text: "事件流 on_event 可观测", state: "implemented" },
+              { text: "_stop() 合法闭合历史", state: "implemented" }
+            ],
+            files: ["app/agent.py"],
+            summary: `
+              <p><code>Agent.ask()</code> 核心循环逻辑（第 288~364 行）：</p>
+              <ol>
+                <li>进入前注入 <code>session_key</code> 并按需跑前置 <code>QueryRewriter</code>（计入本轮 Token 预算，不计入 <code>session.steps</code>）。</li>
+                <li>进入 <code>for step in range(1, max_steps + 1)</code>：调用 <code>self.llm(request_messages, specs, on_delta=...)</code>。</li>
+                <li><strong>正常出口</strong>：若返回 <code>message.get("tool_calls")</code> 为空，记录 assistant 回复，emit <code>final</code> 事件并返回答案。</li>
+                <li><strong>工具分支</strong>：<code>normalize_assistant(message)</code> 清洗并入库 → 逐个计算 <code>signature = f"{name}:{raw_args}"</code> 检测连续重复（<code>repeat >= 3</code> 熔断）→ <code>registry.call()</code> 执行并入库 <code>role: "tool"</code>。</li>
+                <li><strong>预算检查</strong>：每轮工具执行完检查 <code>self.session.tokens - spent_before > self.token_budget</code>，超限或步数耗尽时调用 <code>_stop()</code>。</li>
+              </ol>
+            `,
+            tradeoff: "为什么 _stop() 必须往 session.messages 补一条 assistant 消息？因为熔断发生在刚塞入 role:tool 之后，此时如果直接停下，用户下一句说“继续”就会形成 tool → user 的非法消息序列，OpenAI 兼容接口会直接返回 HTTP 400。",
+            qa: {
+              q: "面试官追问：Agent 循环里的预算为什么按“本轮提问增量”算，而不是按 session.tokens 总累计算？",
+              a: "session.tokens 记录整个多轮对话的累计消耗用于展示账单。如果拿累计值对比 token_budget，聊到阈值之后每一句新提问都会在第一个工具回合后被立刻掐断。用 spent_before 记录提问前基线（且放在 QueryRewriter 之前），才能准确限制单轮耗时与开销。"
+            }
+          },
+          {
+            id: "agent-modes",
+            name: "工作模式",
+            status: "partial",
+            statusLabel: "ReAct 完整 · Plan-and-Execute 为前置轻量变体",
+            subnodes: [
+              { text: "ReAct 模式（标准手写多步循环）", state: "implemented" },
+              { text: "计划与执行模式（前置 DAG 计划 + 单循环执行）", state: "partial" }
+            ],
+            files: ["app/agent.py", "app/query_rewrite.py"],
+            summary: `
+              <ul>
+                <li><strong><span class="term" data-term="ReAct">ReAct 模式</span>（已完整实现）</strong>：<code>Agent.ask()</code> 严格遵循 Thought（模型推理）→ Action（<code>tool_calls</code>）→ Observation（<code>role:tool</code>）的迭代循环，支持 SQL 语法错自修复、文档先搜后读、先查表结构再统计。</li>
+                <li><strong><span class="term" data-term="Plan-and-Execute">计划与执行模式</span>（轻量变体）</strong>：
+                  <br>• <strong>已做的部分</strong>：在 <code>app/query_rewrite.py</code> 中，当策略路由判定为 <code>DECOMPOSITION</code> 时，生成带有 <code>id / query / purpose / depends_on / target_source</code> 的有序子查询计划（经过 Kahn 拓扑排序），通过 <code>format_for_agent()</code> 注入用户消息作为执行蓝图。
+                  <br>• <strong>缺失的部分</strong>：没有独立的 <em>Executor 状态机</em> 去逐条循环调度每个子步骤、也没有 <em>Re-planner 节点</em> 在某一步失败后重排全局任务列表；所有子步骤仍交给同一个主 ReAct 循环一次性消化推进。</li>
+              </ul>
+            `,
+            tradeoff: "单次 Planner 蓝图 + 单 ReAct 执行器兼顾了复杂跨源任务（既查表又查文档）的条理性与低首字延迟，省去了每一步都回调 Planner 模型带来的翻倍 Token 与 RT 开销。",
+            qa: {
+              q: "面试官追问：ReAct 和 Plan-and-Execute 各有什么优缺点？你的项目是怎么结合两者的？",
+              a: "ReAct 灵活、能根据上一步 Observation 实时调整，但在跨数据源/多步骤复杂问题上容易走偏或漏步；标准 Plan-and-Execute 规划清晰但编排重、延迟高。我的项目在进入 ReAct 前加了一层单次轻量 QueryRewriter，对复杂问题先输出带 depends_on 的拓扑有序步骤蓝图，再交由 ReAct 循环灵活执行与自纠。"
+            }
+          },
+          {
+            id: "workflow-graph",
+            name: "工作流与图",
+            status: "missing",
+            statusLabel: "导图有 · 无通用图编排引擎（仅分解输出 DAG）",
+            subnodes: [
+              { text: "有向图节点边状态（无 StateGraph 引擎）", state: "missing" },
+              { text: "全局工作流与局部子循环（固定两段管线）", state: "partial" }
+            ],
+            files: ["app/query_rewrite.py"],
+            summary: `
+              <p>项目中只有固定的两段式调用链：<code>QueryRewriter.rewrite()</code>（前置预处理） → <code>Agent.ask()</code>（主 ReAct 循环）。</p>
+              <p>唯一涉及“图”的代码是 <code>app/query_rewrite.py:_decompose()</code>：它把大模型生成的子查询依赖关系视为 <span class="term" data-term="Kahn算法 / DAG">DAG</span>，用 Kahn 拓扑排序排定执行先后并在成环时丢弃回边。</p>
+            `,
+            missingReason: `
+              <strong>导图中有而项目中缺失的部分</strong>：没有类似 <strong>LangGraph 的显式 StateGraph 编排引擎</strong>（即把节点抽象为函数、把条件路由抽象为 Conditional Edge、维护全局共享 State 并在图内跑多智能体或局部反思子循环）。
+              <br><strong>为什么没做 &amp; 如何扩展</strong>：当前属于单智能体数据分析助手，15 个工具靠单个 ReAct 循环即可覆盖。若未来要扩展为“自动写报告团队”（调研员 → 分析师 → 审稿打回重写），可以引入基于状态字典的有向图调度器，把各专家子 Agent 封装成图节点并增加质量校验条件边。
+            `,
+            qa: {
+              q: "面试官追问：在查询分解（Decomposition）里，模型输出的依赖关系有环或者顺序乱了怎么处理？",
+              a: "_decompose() 使用 Kahn 拓扑排序：先过滤指向自身或不存在 ID 的非法依赖，然后按入度为 0 的队列同层保序输出；如果成环导致部分节点入度永不为 0，则按原序补在末尾，并只保留指向已输出节点的依赖边（破环），保证下游拿到的永远是合法无环执行计划。"
+            }
+          },
+          {
+            id: "context-eng",
+            name: "上下文工程",
+            status: "implemented",
+            statusLabel: "项目核心亮点 · 已深度实现",
+            subnodes: [
+              { text: "有限窗口内管理信息（五大隔离与裁剪策略）", state: "implemented" }
+            ],
+            files: ["app/agent.py", "app/tools/doc_tools.py", "app/query_rewrite.py", "app/ui_render.py", "app/config.py"],
+            summary: `
+              <p>项目围绕“<strong>能力上限靠工具，成本与幻觉上限靠上下文设计</strong>”落地了 5 项上下文工程技巧：</p>
+              <ul>
+                <li><strong>文档正文零注入</strong>：System Prompt 里只放文档的 <code>name / kind / chars / parts</code> 摘要，正文一字不放；检索只返回 110 字候选卡片，模型选定后再调 <code>read_document(part=N)</code> 读 2000 字片段。</li>
+                <li><strong>动态裁剪能力提示</strong>：无表时不提 SQL，只读模式下不提写文件，减少无关指令干扰。</li>
+                <li><strong>改写隔离原则</strong>：<code>QueryRewriter</code> 只采集最近 4 轮纯净对话（跳过 <code>system</code> / <code>tool</code> / 带 <code>tool_calls</code> 的消息，每条压平截断 240 字）；改写后的结构化提示仅注入本轮 <code>request_messages</code> 浅拷贝，<strong>绝不污染 <code>session.messages</code></strong>。</li>
+                <li><strong>观察截断</strong>：<code>MAX_OBS_CHARS=4000</code> + <code>run_sql(max_rows=30)</code> + Excel 限前 40 行×12 列，防单次查询撑爆窗口。</li>
+                <li><strong>展示与上下文分离</strong>：<code>ui_render.py</code> 的折叠（160/600 字）只作用于人类 UI 与落盘 <code>trace</code>，不影响模型上下文。</li>
+              </ul>
+            `,
+            tradeoff: "为什么改写模板不写回 session.messages？因为如果写回，多轮追问后历史消息里会堆满改写模板指令，不仅 Token 暴涨，下一轮 QueryRewriter 读取历史时还会看到上一轮自己编的模板导致自我放大污染。",
+            qa: {
+              q: "面试官追问：用户传了一本 300 页的 PDF，怎么保证上下文不爆炸同时又能准确定位？",
+              a: "1) 入库阶段 readers.extract() 对单份超长文件在 MAX_DOC_CHARS=200,000 字截断并按 2000 字断点切段；2) System Prompt 只给目录元信息，不塞正文；3) 检索走混合检索返回 Top-3 候选卡片（约 450 Token），定位到具体段号后再分页精读那 2000 字。"
+            }
+          },
+          {
+            id: "memory-system",
+            name: "记忆系统",
+            status: "partial",
+            statusLabel: "工作记忆与长期存储完整 · 经验记忆缺失",
+            subnodes: [
+              { text: "工作记忆（Session + ContextVar + 临时上传区）", state: "implemented" },
+              { text: "长期事实存储（Vault 200MB + Chats 最近 50 条）", state: "implemented" },
+              { text: "经验记忆（跨会话策略/反思沉淀）", state: "missing" }
+            ],
+            files: ["app/session.py", "app/chats.py", "app/vault.py", "app/uploads.py"],
+            summary: `
+              <ul>
+                <li><strong>工作记忆</strong>：<code>Session.messages</code> 保存当前会话完整对话与工具轨迹；<code>uploads.py</code> 管理会话级临时副本（<code>sweep()</code> 进程启动清遗留、切会话 <code>discard()</code>）；<code>data_tools._ACTIVE</code> 用 <span class="term" data-term="ContextVar">ContextVar</span> 隔离多标签页激活表。</li>
+                <li><strong>长期事实存储</strong>：
+                  <br>• <code>chats.py</code>（<code>data/chats/</code>）：<code>index.json</code> 存摘要供列表秒开（损坏时自动 <code>_rebuild_index()</code> 自愈），<code>&lt;id&gt;.json</code> 同时存 <code>turns</code>（UI 展示）和 <code>messages</code>（含 <code>tool_calls</code> 供模型续聊），原子临时文件写盘，LRU 上限保留 50 个；
+                  <br>• <code>vault.py</code>（<code>data/vault/</code>）：SHA1 内容去重存储上传原件与抽取正文，总配额 <code>VAULT_QUOTA_MB=200</code>。</li>
+                <li><strong>缺失部分（经验记忆）</strong>：项目<strong>未实现经验记忆（Episodic / Procedural Memory）</strong>——即没有在会话结束后提炼“某类数据易错点/用户偏好/成功工具序列”存入长期记忆并在未来新会话中检索注入的功能。</li>
+              </ul>
+            `,
+            tradeoff: "为什么 chats.py 要存 turns 和 messages 两份？只存 turns 给人看，恢复旧对话继续追问时模型会“记得自己总结过什么，但忘了调过什么工具、查过哪几行数据”，下一句就会自相矛盾。",
+            qa: {
+              q: "面试官追问：多个浏览器标签页同时访问 Streamlit 服务，怎么防止 A 标签页查到 B 标签页上传的表？",
+              a: "早先 _active 是进程级全局变量，多线程并发必串数据。后来改成 contextvars.ContextVar（datainsight.active_key），在每次 rerun 的 _init_state() 和 Agent.ask() 入口注入当前会话 sid，做到线程级完全隔离且不污染工具签名（不用往所有工具加 sid 参数）。同时把 hybrid_search 开关也迁入了 ContextVar。"
+            }
+          }
+        ]
+      },
+
+      {
+        id: "rag",
+        title: "三、RAG 检索增强生成",
+        side: "left",
+        tag: "父子切块 · 混合检索 · 改写 · 评测",
+        modules: [
+          {
+            id: "rag-goal",
+            name: "定义与目标",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "私有文档精确词与语义定位 + 溯源防幻觉", state: "implemented" }
+            ],
+            files: ["app/tools/doc_tools.py", "app/readers.py", "app/hybrid_search.py"],
+            summary: `
+              <p>解决大模型面对用户私有非结构化文档（PDF、Word、PPT、Excel、TXT、Log）时“上下文装不下、人工翻页贵、口语问法找不到”的问题，实现<strong>先定位候选段（<code>search_document</code>）、再精读原文（<code>read_document</code>）、最后带文档名与段号作答</strong>的 <span class="term" data-term="RAG">RAG</span> 链路。</p>
+            `,
+            tradeoff: "Agentic RAG（工具驱动检索）而非死板固定前置检索：模型可以自主决定先查表还是先搜文档、关键词没命中时自己换词再搜、或者把表里异常项拿到文档里核对原因。",
+            qa: {
+              q: "面试官追问：你们的 RAG 是固定 Pipeline（先检索后生成）还是 Agentic RAG？有什么区别？",
+              a: "属于 Tool-based Agentic RAG。检索动作被封装为 search_document 和 read_document 工具，由 Agent 在 ReAct 循环中按需调用：简单问题不搜文档直接查 SQL；检索结果不满意可以换关键词或读相邻段；跨数据源问题可以同时查 CSV 表与 PDF 资料交叉验证。"
+            }
+          },
+          {
+            id: "rag-pipeline",
+            name: "工作链路（离线索引 + 在线检索）",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "离线索引（抽取 → 父子切块 → 后台异步向量化）", state: "implemented" },
+              { text: "在线检索（双路召回 → RRF → 卡片 → 分页精读）", state: "implemented" }
+            ],
+            files: ["app/readers.py", "app/vault.py", "app/embeddings.py", "app/hybrid_search.py"],
+            summary: `
+              <ul>
+                <li><strong>离线索引链路</strong>：文件上传 → <code>readers.route()</code> 按后缀分流（CSV 进 DuckDB，文档进抽取）→ <code>readers.extract()</code> 抽正文并切 2000 字父块 → <code>vault.py</code> 存原件与 <code>text/&lt;sha1&gt;.txt</code> → <code>VectorStore.preindex_async()</code> 后台 daemon 线程切 500 字子块、去重调 Embedding 并写入 <code>data/vault/embeddings.db</code>（支持断点续传与 <code>_INFLIGHT</code> 防重复计算）。</li>
+                <li><strong>在线检索链路</strong>：查询 → <code>hybrid_search()</code> 并行跑 <code>bm25_search</code> 与 <code>vector_search</code>（各召回 Top-20）→ <code>rrf_fuse()</code> 融合排序 → 抽取锚点 110 字 Snippet 拼装 Top-3 候选卡片 → Agent 判读后调用 <code>read_document(part)</code> 读完整 2000 字父段。</li>
+              </ul>
+            `,
+            tradeoff: "为什么要把文本抽取库（pypdf / python-docx / python-pptx / openpyxl）全部做延迟导入？保证最小依赖下核心 CSV 分析功能仍可用，缺库时抛出带安装提示的 MissingDependency 而不是启动崩溃。",
+            qa: {
+              q: "面试官追问：上传大 PDF 后首次检索会不会卡住用户？如果计算向量中途限流或断网怎么办？",
+              a: "上传后立即启动 daemon 线程 preindex_async() 后台预索引，用 _INFLIGHT 集合避免重复并发。ensure_indexed() 每算完一个 batch（16 条）就立刻写入 SQLite 落盘，中途断网/429 下次直接复用已算好的内容哈希实现断点续传；若检索时向量仍不可用，hybrid_search 静默降级为纯 BM25。"
+            }
+          },
+          {
+            id: "rag-embedding",
+            name: "Embedding（文本映射语义向量）",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "OpenAI 兼容远程 + 本地 sentence-transformers", state: "implemented" },
+              { text: "内容寻址多模型缓存 + 查询 LRU", state: "implemented" }
+            ],
+            files: ["app/embeddings.py", "app/config.py"],
+            summary: `
+              <ul>
+                <li><strong>双通道后端</strong>：支持远程 OpenAI 兼容协议（智谱 <code>embedding-3</code>、硅基流动 <code>bge-m3</code>、Ollama 等，与对话模型配置彻底隔离，解决 DeepSeek 无 <code>/embeddings</code> 端点问题）以及本地离线 <code>sentence-transformers</code>。</li>
+                <li><strong><span class="term" data-term="L2 归一化">L2 归一化</span>与校验</strong>：<code>l2_normalize()</code> 校验维度、拦截 NaN/Inf、保护零向量防除零，使后续点积等价余弦相似度；远程返回按 <code>index</code> 重排防乱序。</li>
+                <li><strong>两级缓存</strong>：子块按 <code>(chunk_hash, model_key)</code> 主键存 SQLite（同文本跨文件复用、换模型/维度不覆盖），热向量进内存 <code>_MEM_CACHE</code>；查询向量用 128 条线程安全 LRU <code>_QUERY_CACHE</code> 缓存。</li>
+              </ul>
+            `,
+            tradeoff: "远程请求刻意不发送 encoding_format 参数：实测部分国产网关/中转站不识别该字段直接 400；同时把 probe_embedding() 独立出来真发一条 \"ping\"，直接向界面回显维度和延迟。",
+            qa: {
+              q: "面试官追问：更换了 Embedding 模型或者修改了输出维度后，向量库里新旧向量混在一起怎么办？",
+              a: "我们的 SQLite 表主键是复合键 (chunk_hash, model_key)，model_key 编码了 provider/model/dimensions，换模型或维度会隔离到新的 key 下。检索前 vector_search() 还会再次校验 vec.shape == q_vec.shape，防止形状不对齐报错。"
+            }
+          },
+          {
+            id: "rag-vectordb",
+            name: "向量检索与数据库",
+            status: "partial",
+            statusLabel: "精确暴力检索+SQLite实现 · 无 ANN 与专业向量库",
+            subnodes: [
+              { text: "近似最近邻搜索 ANN（未实现，采用 NumPy 精确点积）", state: "missing" },
+              { text: "常见产品 Milvus/Qdrant/FAISS（未引入，用 SQLite+内存）", state: "missing" }
+            ],
+            files: ["app/embeddings.py", "app/hybrid_search.py"],
+            summary: `
+              <ul>
+                <li><strong>本项目的实现</strong>：在 <code>app/embeddings.py:VectorStore</code> 中用 Python 标准库 <strong>SQLite（WAL 模式，即开即关防跨线程锁死）</strong> 持久化向量 BLOB，检索时全部加载至内存组装 <code>float32</code> 矩阵 <code>mat @ q_vec</code> 做精确余弦相似度计算，并按 <code>(doc_order, part)</code> 做 <span class="term" data-term="MaxSim">MaxSim</span> 聚合（过滤阈值 <code>VECTOR_MIN_SCORE=0.35</code>）。</li>
+                <li><strong>导图有而项目无</strong>：未使用 <strong><span class="term" data-term="ANN">ANN</span>（如 HNSW / IVF / PQ）</strong> 索引算法，也未引入 <strong>Milvus / Qdrant / Chroma / FAISS / pgvector</strong> 等专业向量数据库。</li>
+              </ul>
+            `,
+            missingReason: `
+              <strong>为什么这样取舍？</strong> 个人/中小文档分析场景单次挂载语料在几百到几千个子块之间，NumPy 矩阵乘法在内存里是<strong>亚毫秒级精确检索（100% 召回无近似损失）</strong>，强行引入外部向量库服务或 C++ 扩展反而增加部署门槛和进程运维复杂度。
+              <br><strong>扩展边界</strong>：当文档库扩展到十万级以上子块时，内存全量点积会遇到内存与延迟瓶颈，此时应将 <code>VectorStore</code> 替换为 Qdrant/Milvus 或本地 FAISS HNSW 索引。
+            `,
+            qa: {
+              q: "面试官追问：为什么要用父段 MaxSim 而不是把子块分数取平均？为什么不用专门向量数据库？",
+              a: "1) 一段 2000 字里通常只有两三百字在回答问题，取平均会被无关背景稀释到低于阈值；MaxSim 取最佳子块分数并记住 best_offset，纯语义命中时候选卡片还能直接以胜出子块为锚点截取。2) 几千个子块用 NumPy 矩阵点积亚毫秒且无近似损失，SQLite 即开即关解决了 Streamlit 多线程句柄冲突与 Windows 测试清理报错。"
+            }
+          },
+          {
+            id: "rag-chunking",
+            name: "文档处理与切分",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "切分策略（父子两级切块 + 滑动重叠）", state: "implemented" },
+              { text: "关键原则（断句保护 / 编码探测 / 防二进制乱码）", state: "implemented" }
+            ],
+            files: ["app/readers.py", "app/embeddings.py"],
+            summary: `
+              <ul>
+                <li><strong><span class="term" data-term="父子切块">父子切块</span>策略</strong>：
+                  <br>• 父段（<code>readers.split_chunks</code>）：<code>DOC_CHUNK_CHARS=2000</code> 字，用于 <code>read_document</code> 返回完整语境；
+                  <br>• 子块（<code>embeddings.split_subchunks</code>）：<code>EMBEDDING_SUBCHUNK_CHARS=500</code> 字 + <code>EMBEDDING_SUBCHUNK_OVERLAP=80</code> 字滑动重叠，适配向量模型 512 token 窗口并防边界语义割裂。</li>
+                <li><strong>关键原则</strong>：
+                  <br>1) <strong>断点对齐</strong>：切分时向前查找 <code>\\n / 。 / .  / ！ / ？</code>，且仅当断点大于窗口 60%（父段）或 50%（子块）时才采纳，既不断句又不产生碎片；
+                  <br>2) <strong>多编码与防御</strong>：按 <code>utf-8-sig → utf-8 → gb18030 → big5</code> 依次解码，前 4KB 探测 NUL/控制字符占比防把二进制当文本乱码分析；识别加密/扫描件 PDF、Word 表格、PPT 演讲备注、Excel <code>read_only+data_only</code> 缓存值。</li>
+              </ul>
+            `,
+            tradeoff: "为什么不对扫描件 PDF 强行“读出空文本”然后沉默返回？readers.py 会显式注入 note（“没有可抽取的文字层，很可能是扫描件”），让模型老实告诉用户读不了，而不是对着空文本开始胡编。",
+            qa: {
+              q: "面试官追问：切块时直接按固定字符数硬切有什么问题？你们怎么优化的？",
+              a: "硬切会把“上半年销售额为 / 120 万”劈成两段，导致向量语义偏移和阅读断层。我们在窗口末端回溯句号和换行符，同时设置最小保留比例阈值（0.5/0.6），防止某段开头刚巧有个换行就把一整块切成几十个字。"
+            }
+          },
+          {
+            id: "rag-hybrid",
+            name: "混合检索",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "向量检索 + BM25（三阶段分词与防误召回闸门）", state: "implemented" },
+              { text: "RRF 倒数排名融合 + 确定性排序 + 静默降级", state: "implemented" }
+            ],
+            files: ["app/bm25.py", "app/hybrid_search.py"],
+            summary: `
+              <ul>
+                <li><strong>三阶段 <span class="term" data-term="BM25">BM25</span>（<code>app/bm25.py</code>）</strong>：使用 <span class="term" data-term="Lucene IDF">Lucene 非负 IDF</span>（<code>k1=1.5, b=0.75</code>）。
+                  <br>• <strong>Stage 1</strong>：整词精确子串匹配（专抓错误码 <code>err-9012</code>、专有名词、空格多词 OR）；
+                  <br>• <strong>Stage 2A</strong>：单一 3~10 字中文短词降级为 <span class="term" data-term="2-gram">2-gram</span> 模糊匹配，加<strong>覆盖率 ≥ 0.6</strong> 与<strong>邻近窗口 ≤ 48 字</strong>两道防误召回闸门；
+                  <br>• <strong>Stage 2B</strong>：自然语言长问句走 <code>jieba.lcut_for_search</code>（无 jieba 自动退 2-gram），要求至少命中 2 实词且分数 ≥ 0.5。</li>
+                <li><strong><span class="term" data-term="RRF">RRF</span> 融合与确定性排序（<code>app/hybrid_search.py</code>）</strong>：BM25 Top-20 与 Vector Top-20 用 <code>1/(60+rank)</code> 融合；同分时按 <code>(精确词命中 > BM25分 > 语义分 > 文档序 > 段号)</code> 确定性打破平局；向量异常时静默降级为纯 BM25 并提示界面。</li>
+              </ul>
+            `,
+            tradeoff: "为什么 Stage 2A 被闸门挡下来的词（比如“共识机制”在文章里散落了“共识”和“机制”）绝对不能再流入 Stage 2B？因为 jieba 恰好会把它切成“共识”+“机制”，闸门刚挡住的假命中就会换个入口钻进来。",
+            qa: {
+              q: "面试官追问：为什么选 RRF 而不是把 BM25 分数和余弦相似度做 Min-Max 归一化后加权相加？",
+              a: "BM25 分数无上界（多词高频可达 3~5），余弦相似度在 [-1, 1] 甚至集中于 [0.35, 0.85]，不同 query 的分布差异极大，做 batch 内 Min-Max 在候选少或分数接近时会把噪音放大成 1.0。RRF 只看名次（1/(60+rank)），天然量纲一致且严格保证“双路同时命中”稳压“单路第一”。"
+            }
+          },
+          {
+            id: "rag-rewrite",
+            name: "查询改写 (Query Rewriting)",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "5 大策略路由（透传/基础/扩展/多路/分解）", state: "implemented" },
+              { text: "快速旁路 + 英文文档跨语言扩展 + 拓扑排序", state: "implemented" }
+            ],
+            files: ["app/query_rewrite.py"],
+            summary: `
+              <p><code>QueryRewriter</code> 在进入主循环前用<strong>单次结构化 JSON 请求</strong>同时完成策略判定与改写执行：</p>
+              <ul>
+                <li><strong>规则快速通道（<code>_fast_bypass</code>）</strong>：命中“继续”“谢谢”“你好”等控制/礼貌短语直接透传，0 额外延迟与 Token。</li>
+                <li><strong>五选一策略</strong>：
+                  <br>1) <code>PASS_THROUGH</code>：清晰单步问句直接透传；
+                  <br>2) <code>BASIC_REWRITE</code>：多轮追问指代消解（如“北京呢？”）、口语对齐真实列名；
+                  <br>3) <code>QUERY_EXPANSION</code>：输出 3~6 个同义业务术语 + 检索词组，且检测到纯英文文件名文档（如 <code>bitcoin_en.pdf</code>）时额外产出纯英文检索词 <code>english_keywords</code> 支撑跨语言检索；
+                  <br>4) <code>MULTI_QUERY</code>：宽泛开放问题拆 2~4 个互补并行视角；
+                  <br>5) <code>DECOMPOSITION</code>：复杂跨源任务拆 2~5 步依赖子查询并用 Kahn 算法拓扑重排。</li>
+              </ul>
+            `,
+            tradeoff: "铁律：format_for_agent() 永远在最前面保留【用户原始问题】。万一改写模型把原意改歪了，主模型还能对照原话纠回来；且任何超时（15s，retries=0）或 JSON 异常一律静默透传。",
+            qa: {
+              q: "面试官追问：前置 Query Rewriting 增加了一次串行 LLM 调用，怎么控制它对首字延迟（TTFT）的影响？",
+              a: "1) 策略判定和改写合在一次调用完成，不拆两步；2) 简单确认词走 _fast_bypass 规则旁路零耗时；3) 历史只取最近 4 轮纯净文本且压至 240 字、文档只给元信息，Prompt 极短并设 max_tokens=600；4) 设置 retries=0 与 15s 超时，异常不重试直接透传。"
+            }
+          },
+          {
+            id: "rag-rerank",
+            name: "重排序 (Reranking)",
+            status: "missing",
+            statusLabel: "导图有 · 本项目未实现",
+            subnodes: [
+              { text: "Cross-Encoder 精细打分提升相关性", state: "missing" }
+            ],
+            files: [],
+            summary: `
+              <p><strong>模块内容</strong>：在粗排/融合（BM25 + Embedding + RRF 召回 Top-20）之后，引入 <span class="term" data-term="Reranker">Reranker</span>（如 BGE-Reranker-v2-m3、Cohere Rerank）对 <code>(Query, Passage)</code> 进行全交叉注意力精排，再截取 Top-3 喂给大模型。</p>
+            `,
+            missingReason: `
+              <strong>项目中缺失情况</strong>：当前检索在 <code>rrf_fuse()</code> 之后直接按 RRF 分数和规则 tie-breaker（精确词 > BM25 > 向量分）截取 Top-3 候选卡片，<strong>没有 Cross-Encoder 精排阶段</strong>。
+              <br><strong>为什么没做 &amp; 如何补齐</strong>：一方面项目以“轻量无重框架/零外部推理服务依赖”为目标；另一方面由于采用父子切块（500 字子块 MaxSim）+ RRF 双路交叉印证，在 24 条检索评测集上已取得较稳健的召回。若要补齐，可在 <code>hybrid_search()</code> 返回候选前插入可选的 <code>rerank(query, candidates[:10])</code> 接口（对接 <code>/rerank</code> HTTP API 或本地 CrossEncoder），同样做异常静默降级回 RRF 排序。
+            `,
+            qa: {
+              q: "面试官追问：双塔 Embedding 检索和 Cross-Encoder Reranker 的本质区别是什么？为什么不能全库跑 Reranker？",
+              a: "Embedding 是双塔独立编码，文档向量可离线预计算，在线仅做向量内积，速度快但 Query 与文档间无细粒度 Token 交互；Cross-Encoder 将 Query 和 Passage 拼接一起过 Transformer，每层都能做全交叉注意力，相关性打分极准但无法预计算，复杂度 O(N)，因此工业界标准是“双路粗排 Top-50 → RRF → Reranker 精排 Top-5”。"
+            }
+          },
+          {
+            id: "rag-graphrag",
+            name: "GraphRAG",
+            status: "missing",
+            statusLabel: "导图有 · 本项目未实现",
+            subnodes: [
+              { text: "检索实体关系路径（知识图谱 / 多跳推理）", state: "missing" }
+            ],
+            files: [],
+            summary: `
+              <p><strong>模块内容</strong>：<span class="term" data-term="GraphRAG">GraphRAG</span> 通过 LLM 从文档中抽取实体与关系三元组构建知识图谱，并基于社区检测（Leiden）生成层级摘要，解决传统切片 RAG 难以回答的“全局性总结”与“跨文档多跳关系推理”问题。</p>
+            `,
+            missingReason: `
+              <strong>项目中缺失情况</strong>：项目<strong>没有任何知识图谱抽取、图存储（Neo4j/NetworkX）或图路径检索</strong>。（注意：<code>app/tools/mindmap_tools.py</code> 只是把结构化树路径绘制成思维导图 PNG 的输出工具，不是 GraphRAG）。
+              <br><strong>为什么没做 &amp; 替代方案</strong>：GraphRAG 离线建图需要高频调 LLM 抽实体关系，Token 成本高且建库慢，不适合用户临时上传几份 PDF 就立刻提问的轻量交互。本项目面对跨文档/多跳问题，目前是靠 <code>QueryRewriter</code> 的多路分解（<code>DECOMPOSITION</code>）+ Agent 多轮 <code>search_document</code> 迭代跳转来实现。
+            `,
+            qa: {
+              q: "面试官追问：传统切片 RAG 的盲区是什么？GraphRAG 是怎么解决的？代价是什么？",
+              a: "传统 RAG 只按局部 chunk 相似度召回，面对“整套文档里有哪些共性风险”或“A 公司通过哪些间接持股控制 C 公司”这类全局/多跳问题会漏掉关键桥接片段。GraphRAG 通过实体关系图连接跨段信息并做社区摘要来解决；代价是离线索引 Token 消耗大、增量更新图谱复杂、线上多跳检索延迟较高。"
+            }
+          },
+          {
+            id: "rag-eval",
+            name: "评估指标",
+            status: "implemented",
+            statusLabel: "项目核心亮点 · 检索+生成双套离线评测",
+            subnodes: [
+              { text: "召回率与命中率（MRR@K / Hit@K / Recall@K）", state: "implemented" },
+              { text: "答案质量指标（忠实度 + 逆向相关性 + 拒答正交）", state: "implemented" }
+            ],
+            files: ["eval/eval_retrieval.py", "eval/eval_generation.py", "eval/answer_metrics.py", "eval/report_generation.md"],
+            summary: `
+              <p>项目未引入 Ragas / TruLens 等重框架，手写了完整的纯开发期离线量化评测体系：</p>
+              <ul>
+                <li><strong>检索侧（<code>eval/eval_retrieval.py</code>）</strong>：24 条手工标注用例覆盖精确词、多词共现、自然语言语义、跨语言四类，横向对比 <code>bm25 / vector / hybrid</code> 以及 <code>--compare-rewrite</code> 前后差异，输出 <span class="term" data-term="MRR@K / Hit@K / Recall@K">MRR@K、Hit@1、Hit@K、Recall@K</span>、零命中数与平均延迟。</li>
+                <li><strong>生成侧（<code>eval/answer_metrics.py</code> &amp; <code>eval_generation.py</code>）</strong>：
+                  <br>• <strong><span class="term" data-term="Faithfulness">忠实度</span></strong>：Judge 将答案拆成原子事实声明，对照本轮 <code>role:tool</code> 上下文（按工具信息密度分级裁剪至 12000 字）判 <code>supported / unsupported / contradicted</code>，出现任意矛盾直接判 <code>fail</code>；
+                  <br>• <strong><span class="term" data-term="Answer Relevance">答案相关性</span></strong>：主路径让 Judge 仅看答案逆向反推 3 个假设问题，与用户原问题算向量余弦均值（防 LLM Judge 打高分宽容偏差）；
+                  <br>• <strong>拒答正交处理</strong>：无依据问题诚实拒答拿满忠实度、相关性记 0，单独核对 <code>expect_refusal</code>；
+                  <br>• <strong>实测报告（<code>eval/report_generation.md</code>）</strong>：4 组矩阵配置（<code>baseline / basic_rewrite / colloquial / cross_lingual</code>）共 64 次问答，合计忠实度 <strong>0.948</strong>（680 条声明中 645 支持、35 无依据、<strong>0 矛盾</strong>），<code>cross_lingual</code> 下忠实度达 0.990。</li>
+              </ul>
+            `,
+            tradeoff: "生成评测把“生成（--save-predictions）”与“打分（--predictions）”解耦：跑一次真实 Agent 存好快照后，调 Judge Prompt 或阈值时无需重烧主模型 Token。",
+            qa: {
+              q: "面试官追问：为什么相关性要用“逆向生成假设问题 + 余弦相似度”，而不是直接让 LLM Judge 打 0~1 分？",
+              a: "LLM 作为 Judge 直接打相关性往往偏宽容（看到答案很长、语气礼貌就给 0.8+）。逆向从答案反推它实际回答了什么问题，再和原始问题算语义向量余弦，如果答案答非所问或只答了一半，反推出来的问题向量就会明显偏离原问题，打分客观且可复现。"
+            }
+          }
+        ]
+      },
+
+      {
+        id: "mcp",
+        title: "四、MCP (Model Context Protocol)",
+        side: "left",
+        tag: "标准协议 · 导图有而项目未实现",
+        modules: [
+          {
+            id: "mcp-all",
+            name: "MCP 定义 / 三层关系 / MCP Server",
+            status: "missing",
+            statusLabel: "导图有 · 本项目未实现",
+            subnodes: [
+              { text: "定义（标准化上下文/工具通信协议）", state: "missing" },
+              { text: "三层关系（任务编排层 / 通信协议层 / 模型能力层）", state: "missing" },
+              { text: "MCP Server（独立工具/资源服务端）", state: "missing" }
+            ],
+            files: ["app/tools/registry.py"],
+            summary: `
+              <p><strong>概念说明</strong>：<span class="term" data-term="MCP">MCP</span> 是将 AI 应用（Host/Client）与外部数据源/工具（MCP Server）解耦的开放标准协议，形成 <strong>任务编排层（Agent Host） ↔ 通信协议层（JSON-RPC 2.0 over stdio/SSE） ↔ 模型能力层（LLM Function Calling）</strong> 的标准解耦，消除“N 个模型 × M 个工具”的重复适配。</p>
+            `,
+            missingReason: `
+              <strong>本项目未实现 MCP</strong>：DataInsight 当前所有工具（SQL/Python/文档检索/本地文件/PPT）均通过 <code>app/tools/registry.py</code> 的 <code>@registry.tool</code> 装饰器进行<strong>进程内 Python 直接注册与调用</strong>，协议层仅使用了标准的 OpenAI Function Calling JSON Schema，没有实现 MCP Client、也没有以独立进程/HTTP 暴露或接入任何外部 MCP Server。
+              <br><strong>如果要在本项目接入 MCP 该怎么做？</strong> 只需写一个适配器模块（例如 <code>app/tools/mcp_bridge.py</code>）：启动时连接配置的 MCP Server（stdio 或 SSE），调用 <code>tools/list</code> 拉取工具描述转成 <code>ToolRegistry</code> 中的代理条目，在 <code>registry.call()</code> 时通过 JSON-RPC <code>tools/call</code> 转发给对应 MCP Server 即可无缝复用现有 Agent 循环。
+            `,
+            qa: {
+              q: "面试高频题：Function Calling 和 MCP 是替代关系吗？你们项目为什么没直接上 MCP？",
+              a: "不是替代关系，而是分层互补：Function Calling 是“模型能力层”输出调用意图的格式；MCP 是“通信协议层”，规范 Host 如何跨进程发现和调用外部工具 Server。本项目定位是自包含的单机分析助手，15 个内置工具直接进程内调用（Python 沙箱已在 _worker.py 独立进程），无需额外 MCP Server 进程通信开销；但通过 ToolRegistry 抽象可以很容易挂载外部 MCP Server。"
+            }
+          }
+        ]
+      },
+
+      {
+        id: "skills",
+        title: "五、Skills (技能系统)",
+        side: "left",
+        tag: "按需技能包 · 导图有而项目未实现",
+        modules: [
+          {
+            id: "skills-all",
+            name: "Skills 定义 & 与 Prompt 关系",
+            status: "missing",
+            statusLabel: "导图有 · 本项目未实现",
+            subnodes: [
+              { text: "定义（模块化可复用领域指令与脚本包）", state: "missing" },
+              { text: "与 Prompt 关系（渐进式按需加载 vs 静态写入）", state: "missing" }
+            ],
+            files: ["app/agent.py"],
+            summary: `
+              <p><strong>概念说明</strong>：<span class="term" data-term="Skills">Skills</span> 是把特定任务的 SOP、操作规范、示例与辅助脚本封装为独立目录（以 <code>SKILL.md</code> 为入口）。核心思想是<strong>渐进式披露（Progressive Disclosure）</strong>：平时系统提示词里只放各技能的一句话索引，只有当用户意图匹配某项技能时，Agent 才按需读取对应 <code>SKILL.md</code> 正文并执行工作流，避免把几十个复杂场景的指导全塞进 System Prompt 撑爆窗口与稀释注意力。</p>
+            `,
+            missingReason: `
+              <strong>本项目未实现 Skills 体系</strong>：项目通过 <code>app/agent.py:make_system_prompt()</code> 根据当前数据源和权限状态<strong>条件拼接单一的系统提示词</strong>（同时附上约 10 条工具使用策略），没有独立的 <code>SKILL.md</code> 目录规范、技能元数据扫描器或按需加载机制。
+              <br><strong>扩展思路</strong>：当项目工具从 15 个继续膨胀（例如增加财务建模、异常根因排查 SOP、多页研报固定模板等复杂垂直流）时，就可以引入 Skills 目录：System Prompt 只留技能摘要，让 Agent 通过类似 <code>load_skill(name)</code> 的机制按需把操作规程加载进上下文。
+            `,
+            qa: {
+              q: "面试高频题：Skills 和传统的 System Prompt、Tool（或 MCP）有什么区别？",
+              a: "Tool/MCP 解决“能调用什么原子能力（手和脚）”；System Prompt 是全局常驻规则；而 Skills 解决“针对某类复杂任务的专业作业流程（SOP 说明书）”，通过“目录常驻 + 正文按需加载”的机制，在不撑爆 System Prompt 的前提下赋予 Agent 几十种复杂专家工作流。"
+            }
+          }
+        ]
+      },
+
+      {
+        id: "engineering",
+        title: "六、工程实践",
+        side: "right",
+        tag: "三层工程 · 循环控制 · 面试高频考点",
+        modules: [
+          {
+            id: "eng-system",
+            name: "系统工程",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "前后端解耦与可单测事件渲染", state: "implemented" },
+              { text: "运行时热切模型配置 + 连通性探针", state: "implemented" },
+              { text: "零 Key 离线回归测试（ScriptedLLM + AppTest）", state: "implemented" }
+            ],
+            files: ["app.py", "app/ui_streamlit.py", "app/ui_render.py", "app/config.py", "tests/"],
+            summary: `
+              <ul>
+                <li><strong>清晰分层</strong>：<code>ui_render.py</code> 用纯函数把 7 种 Agent 事件（<code>rewrite/step/tool_call/observation/final/warning/error</code>）转为展示对象，脱离 Streamlit 可直接单测；<code>ui_streamlit.py</code> 管交互与上传生命周期。</li>
+                <li><strong>多模型配置热切</strong>：<code>config.py</code> 支持 <code>.env</code> 默认 + <code>data/model.json</code> 多配置列表（同模型挂不同网关自动加主机名区分），界面支持「测试连接」（发 <code>max_tokens=1</code> 精准诊断 401/404/400 且不覆盖当前生效配置）。</li>
+                <li><strong>测试体系</strong>：<code>tests/</code> 下包含数十个测试文件（README 标注 628 项回归测试），利用剧本化假模型 <code>ScriptedLLM</code> 与 Streamlit 官方 <code>AppTest</code> 做到不联网、不花钱覆盖核心链路、多标签页并发隔离及变异测试。</li>
+              </ul>
+            `,
+            tradeoff: "为什么 test_isolation.py 里专门写了并发变异测试？因为“多标签页数据串表”在单线程下测不出来，只有开双线程交叉设置 ContextVar（或验证把 current_key 换回全局变量测试必挂），才能守住数据隔离底线。",
+            qa: {
+              q: "面试官追问：开发 Agent 时如果不每次花钱调真实大模型，怎么写自动化单元测试？",
+              a: "我们在 Agent 构造器注入 llm 回调抽象（LLMCallable）。单测传入按剧本序列返回预设 LLMResponse 的 ScriptedLLM，就能确定性测试多步工具调用、连续重复熔断、预算耗尽 _stop() 闭合、异常转文本自愈等全部边界条件，无需联网且毫秒级跑完。"
+            }
+          },
+          {
+            id: "eng-three-layers",
+            name: "三层工程关系（提示 / 上下文 / 执行）",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "提示工程（动态规则 + docstring 语义）", state: "implemented" },
+              { text: "上下文工程（元信息索引 + 卡片分页 + 改写隔离）", state: "implemented" },
+              { text: "执行工程（AST 沙箱 + 权限开关 + SQL 防火墙）", state: "implemented" }
+            ],
+            files: ["app/agent.py", "app/sandbox.py", "app/_worker.py", "app/files.py", "app/tools/data_tools.py"],
+            summary: `
+              <ul>
+                <li><strong>提示工程（告诉模型怎么想）</strong>：动态 System Prompt + 工具 docstring 清晰标注适用与不适用场景（如“不要猜列名”“只有一张图别开 PPT”）。</li>
+                <li><strong>上下文工程（控制模型看见什么）</strong>：<code>dataset</code> 统一视图名避免模型记错表名、文档延迟分页读、<code>MAX_OBS_CHARS=4000</code> 截断。</li>
+                <li><strong>执行工程（兜住模型手脚的确定性护栏）</strong>：
+                  <br>• <strong>SQL 防火墙</strong>：<code>data_tools._FORBIDDEN</code> 正则拦截 <code>insert/update/delete/drop/alter/copy...</code> 等写操作；
+                  <br>• <strong>Python 受控执行环境（<code>sandbox.py</code> + <code>_worker.py</code>）</strong>：先走 <span class="term" data-term="AST">AST</span> 静态检查（白名单模块 <code>ALLOWED_MODULES</code>；拦截 <code>eval/exec/getattr/__dunder__</code>；只读模式下连 <code>df.to_csv()</code> / <code>savefig()</code> 方法属性一并拦截；对误用 <code>matplotlib</code> 或 <code>zipfile/pptx</code> 直接报错指路对应工具），再启动 <code>python -I -X utf8</code> 隔离独立子进程，设置 8s 超时强杀与 POSIX 512MB 内存限制，通过 stdin/stdout 单行 JSON 通信；
+                  <br>• <strong>本机双模式权限（<code>files.py</code>）</strong>：默认「只读」彻底封死写盘和 <code>open_file</code>（因 <code>os.startfile</code> 对 <code>.exe/.lnk</code> 等价直接执行），切至「完全工作区」才放开读写与 <code>SHGetFolderPathW</code> 系统桌面路径解析（覆盖 OneDrive 重定向）。</li>
+              </ul>
+            `,
+            tradeoff: "诚实划定边界：README 与代码明确写明 sandbox.py 是 Guardrail（护栏）而非安全沙箱（Security Boundary）——pandas.read_csv 仍能读文件、子进程也未做网络命名空间隔离，它防的是模型手滑与常规越权，而不是恶意代码攻击。",
+            qa: {
+              q: "面试官追问：为什么 AST 拦截里要把 getattr 和双下划线属性（__class__ 等）也封掉？只拦截 open() 为什么不够？",
+              a: "Python 里可以通过 ().__class__.__bases__[0].__subclasses__() 或 getattr 链绕过内置函数名拦截实现沙箱逃逸；同时仅封 open() 挡不住模型调用 df.to_csv() 或 plt.savefig() 偷偷落盘写文件。因此在只读模式下必须同时检查 ast.Attribute 对双下划线和 WRITE_METHODS 的访问。"
+            }
+          },
+          {
+            id: "eng-loop",
+            name: "循环工程",
+            status: "implemented",
+            statusLabel: "项目已完整实现",
+            subnodes: [
+              { text: "Error-as-Data 自修复回路", state: "implemented" },
+              { text: "三道防呆刹车（步数 / 预算 / 重复熔断）", state: "implemented" }
+            ],
+            files: ["app/agent.py", "app/tools/registry.py", "app/sandbox.py"],
+            summary: `
+              <ul>
+                <li><strong><span class="term" data-term="Error-as-Data">Error-as-Data</span>（错误即数据）</strong>：<code>ToolRegistry.call()</code> 永远不向上抛异常；无论是 SQL 列名写错、Python 语法错/超时/崩溃（返回带 <code>lineno</code> 和 <code>source_line</code> 的报错），还是查无此文档（返回真实可选文档列表），全变成提示性文本回到模型手里，驱动模型在下一轮自行修正。</li>
+                <li><strong>三道止损刹车</strong>：1) <code>MAX_STEPS=100</code> 兜底；2) 单轮 <code>TOKEN_BUDGET</code> 止损；3) 工具+参数精确签名连续相同 <code>repeat >= 3</code> 强制中止，防止模型陷入死循环安静烧钱。</li>
+              </ul>
+            `,
+            tradeoff: "为什么只判“连续重复 >= 3”而不是全局去重？模型有时需要“先查某段 → 再读另一段 → 回来再比对某条件”，合法的复用不应被拦截；只有一模一样的参数连续空转 3 次才是死循环。",
+            qa: {
+              q: "面试官追问：模型在沙箱里写错代码报错，你们回传了哪些信息帮助它一次改对？",
+              a: "_worker.py 的 _locate() 会沿着 traceback 过滤出 filename == '<string>' 的帧，精准提取用户代码的出错行号 lineno 与该行源码；加上错误类型、崩溃前 stdout、以及当前环境下 df 是否为 None（防止无表时对 None 调 .head()）和写权限提示，构成一份“哪里错、为什么、怎么改”的完整观察。"
+            }
+          },
+          {
+            id: "eng-interview",
+            name: "常见面试考点（幻觉 / 可靠性 / 评估 / 多模态部署）",
+            status: "partial",
+            statusLabel: "前 3 项深度落地 · 多模态与模型部署缺失",
+            subnodes: [
+              { text: "解决幻觉方法（工具硬规则+诚实拒答+忠实度评测）", state: "implemented" },
+              { text: "可靠 Agent 设计（隔离/原子写/静默降级/护栏）", state: "implemented" },
+              { text: "RAG 系统评估（检索3指标 + 生成2指标矩阵）", state: "implemented" },
+              { text: "多模态输入与模型部署（VLM/OCR/vLLM 缺失）", state: "missing" }
+            ],
+            files: ["app/agent.py", "app/chats.py", "app/hybrid_search.py", "eval/answer_metrics.py", "app/readers.py"],
+            summary: `
+              <ul>
+                <li><strong>解决幻觉方法（已落地）</strong>：Prompt 硬规则禁止编造数字；取消隐式默认回退 <code>sales.csv</code>（防把测试数据当用户数据）；<code>find_document</code> 禁止模糊匹配文件名（防张冠李戴）；检索不到或表里无字段时明确引导拒答；离线用 <code>Faithfulness</code> 审计每条原子声明。</li>
+                <li><strong>可靠 Agent 设计（已落地）</strong>：<code>chats.py</code> 先写 <code>.tmp</code> 再 <code>replace()</code> 原子落盘防断电损坏 + <code>index.json</code> 丢失自动重建；向量检索异常/改写超时的全链路静默降级；<code>contextvars</code> 多标签页并发隔离。</li>
+                <li><strong>RAG 系统评估（已落地）</strong>：检索端 MRR@K / Hit@K / Recall@K + 生成端忠实度 / 逆向问题相关性 + 64 次问答矩阵实测。</li>
+                <li><strong>缺失部分（多模态与模型部署）</strong>：
+                  <br>• <strong>多模态（<span class="term" data-term="VLM / OCR">VLM / OCR</span>）</strong>：项目可<em>输出</em>图表 PNG 和 PPTX，但<strong>输入侧仅支持纯文本提取</strong>（无视觉模型看图、无 OCR 识别扫描件 PDF、无法读取 PPT/Word 内嵌图片或图表数值）；
+                  <br>• <strong>模型部署</strong>：无自建推理引擎部署（如 vLLM / SGLang / TGI / TensorRT-LLM、AWQ/GPTQ 量化或显存调度），仅通过配置支持连接本地 Ollama 或加载轻量 <code>sentence-transformers</code>。</li>
+              </ul>
+            `,
+            missingReason: `
+              <strong>如果面试官问到多模态或模型部署怎么补齐？</strong>
+              <br>• <strong>多模态补齐</strong>：可在 <code>readers.py</code> 针对空文字层的 PDF/图片页引入 PaddleOCR 或调用 VLM（如 Qwen-VL / GPT-4o 传 <code>image_url</code> base64）转成结构化 Markdown 描述后再切块入库；同时在 <code>make_chart</code> / <code>make_pptx</code> 后可加一步 VLM 视觉自检（看生成的图或幻灯片是否遮挡溢出）。
+              <br>• <strong>部署视角</strong>：若在企业内网私有化部署，主模型可用 vLLM 部署 Qwen2.5-72B-Instruct-AWQ 暴露 OpenAI 兼容接口（启用 <code>--enable-auto-tool-choice</code> 支持 Function Calling），Embedding 用 TEI（Text Embeddings Inference）独立部署 BGE-M3，<code>DataInsight</code> 只需改 <code>.env</code> 的两个 Base URL 即可零代码迁移切换。
+            `,
+            qa: {
+              q: "面试压轴题：如果给你 2 分钟总结 DataInsight 这个项目解决的最核心的工程痛点是什么？",
+              a: "一句话概括：我们在不依赖重型 Agent/RAG 框架的前提下，通过“上下文工程 + 受控沙箱执行 + 双路混合检索与前置查询改写 + 闭环离线量化评测”，解决通用大模型在私有表格和长文档分析中“易幻觉、易串数据、容易死循环烧钱、以及口语/跨语言检索漏召回”四大工程痛点，最终在 64 次矩阵评测中做到 0.948 忠实度与 0 矛盾率。"
+            }
+          }
+        ]
+      }
+    ];
+
+    // -------------------------------------------------------- Render Stats & Sidebar
+    function computeStats() {
+      let total = 0, impl = 0, partial = 0, missing = 0;
+      const missingList = [];
+      BRANCHES.forEach(b => {
+        b.modules.forEach(m => {
+          total++;
+          if (m.status === "implemented") impl++;
+          else if (m.status === "partial") partial++;
+          else missing++;
+
+          if (m.status === "missing") {
+            missingList.push({ id: m.id, label: `${b.title.split("、")[1] || b.title} → ${m.name}` });
+          } else {
+            m.subnodes.forEach(s => {
+              if (s.state === "missing") {
+                missingList.push({ id: m.id, label: `${m.name}：${s.text.split("（")[0]}` });
+              }
+            });
+          }
+        });
+      });
+      return { total, impl, partial, missing, missingList };
+    }
+
+    function renderStats() {
+      const s = computeStats();
+      document.getElementById("stats-grid").innerHTML = `
+        <div class="stat-card">
+          <div class="stat-label">导图一级分支 / 二级模块</div>
+          <div class="stat-value">${BRANCHES.length} / ${s.total}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label" style="color:var(--green)">完整实现模块</div>
+          <div class="stat-value" style="color:var(--green)">${s.impl}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label" style="color:var(--amber)">部分实现 / 轻量变体</div>
+          <div class="stat-value" style="color:var(--amber)">${s.partial}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label" style="color:var(--red)">导图有而项目无（模块级）</div>
+          <div class="stat-value" style="color:var(--red)">${s.missing}</div>
+        </div>
+      `;
+
+      document.getElementById("missing-chips").innerHTML = s.missingList
+        .map(item => `<a class="missing-chip" href="#${item.id}" onclick="highlightModule('${item.id}')">❌ ${item.label}</a>`)
+        .join("");
+    }
+
+    function renderSidebar() {
+      const nav = document.getElementById("sidebar-nav");
+      nav.innerHTML = BRANCHES.map(b => {
+        const subs = b.modules.map(m => `
+          <a class="nav-subitem" href="#${m.id}" onclick="highlightModule('${m.id}')">
+            <span>${m.name}</span>
+            <span class="dot dot-${m.status}" title="${m.statusLabel}"></span>
+          </a>
+        `).join("");
+        return `
+          <div>
+            <a class="nav-branch" href="#branch-${b.id}">
+              <span>${b.title}</span>
+              <span class="nav-count">${b.modules.length}</span>
+            </a>
+            <div class="nav-sublist">${subs}</div>
+          </div>
+        `;
+      }).join("") + `
+        <a class="nav-branch" href="#glossary-section">
+          <span>📚 专有名词速查表</span>
+          <span class="nav-count">${Object.keys(GLOSSARY).length}</span>
+        </a>
+      `;
+    }
+
+    // -------------------------------------------------------- Render Module Cards
+    function renderBranches() {
+      const container = document.getElementById("branches-container");
+      container.innerHTML = BRANCHES.map(b => {
+        const cards = b.modules.map(m => {
+          const badgeClass = `badge-${m.status}`;
+          const statusIcon = m.status === "implemented" ? "✅" : (m.status === "partial" ? "🟡" : "❌");
+          const subHtml = m.subnodes.map(s => {
+            const cls = s.state === "missing" ? "is-missing" : (s.state === "partial" ? "is-partial" : "");
+            const icon = s.state === "missing" ? "❌ " : (s.state === "partial" ? "🟡 " : "✓ ");
+            return `<span class="subnode-pill ${cls}">${icon}${s.text}</span>`;
+          }).join("");
+          const filesHtml = m.files.length
+            ? `<div class="file-chips">${m.files.map(f => `<span class="file-chip">${f}</span>`).join("")}</div>`
+            : `<div class="file-chips"><span class="file-chip" style="color:var(--red);border-color:var(--red-border)">项目中无对应实现代码</span></div>`;
+          const tradeoffHtml = m.tradeoff
+            ? `<div class="tradeoff-box"><strong>💡 设计取舍（面试加分点）：</strong>${m.tradeoff}</div>`
+            : "";
+          const missingHtml = m.missingReason
+            ? `<div class="missing-box">${m.missingReason}</div>`
+            : "";
+          const qaHtml = m.qa
+            ? `<details class="qa">
+                <summary>🎯 ${m.qa.q}</summary>
+                <div class="qa-content">${m.qa.a}</div>
+              </details>`
+            : "";
+
+          return `
+            <article class="module-card status-${m.status}" id="${m.id}" data-status="${m.status}">
+              <div class="module-top">
+                <h3 class="module-name">${m.name}</h3>
+                <span class="badge ${badgeClass}">${statusIcon} ${m.statusLabel}</span>
+              </div>
+              <div class="module-subnodes">${subHtml}</div>
+              ${filesHtml}
+              <div class="module-body">${m.summary}</div>
+              ${tradeoffHtml}
+              ${missingHtml}
+              ${qaHtml}
+            </article>
+          `;
+        }).join("");
+
+        return `
+          <section class="branch-section" id="branch-${b.id}">
+            <div class="branch-header">
+              <h2 class="branch-title">${b.title}</h2>
+              <span class="branch-tag">${b.tag}</span>
+            </div>
+            <div class="module-grid">${cards}</div>
+          </section>
+        `;
+      }).join("");
+    }
+
+    function renderGlossary() {
+      const grid = document.getElementById("glossary-grid");
+      grid.innerHTML = Object.entries(GLOSSARY).map(([term, desc]) => `
+        <div class="glossary-card" id="gloss-${encodeURIComponent(term)}">
+          <div class="glossary-term">${term}</div>
+          <p class="glossary-desc">${desc}</p>
+        </div>
+      `).join("");
+    }
+
+    // -------------------------------------------------------- Interactive SVG Mind Map
+    function renderMindMapSVG() {
+      const svg = document.getElementById("mindmap-svg");
+      const ns = "http://www.w3.org/2000/svg";
+
+      const colors = {
+        implemented: { fill: "#ecfdf5", stroke: "#10b981", text: "#065f46" },
+        partial: { fill: "#fffbeb", stroke: "#f59e0b", text: "#92400e" },
+        missing: { fill: "#fef2f2", stroke: "#ef4444", text: "#991b1b" },
+        branch: { fill: "#eff6ff", stroke: "#2563eb", text: "#1e3a8a" },
+        root: { fill: "#1e293b", stroke: "#0f172a", text: "#ffffff" }
+      };
+
+      const branchMap = {
+        right: [
+          { branch: BRANCHES[0], yCenter: 145 },
+          { branch: BRANCHES[1], yCenter: 380 },
+          { branch: BRANCHES[5], yCenter: 625 }
+        ],
+        left: [
+          { branch: BRANCHES[2], yCenter: 225 },
+          { branch: BRANCHES[3], yCenter: 510 },
+          { branch: BRANCHES[4], yCenter: 645 }
+        ]
+      };
+
+      function el(tag, attrs, parent) {
+        const node = document.createElementNS(ns, tag);
+        for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, v);
+        if (parent) parent.appendChild(node);
+        return node;
+      }
+
+      function drawCurve(x1, y1, x2, y2, stroke) {
+        const mx = (x1 + x2) / 2;
+        el("path", {
+          d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`,
+          fill: "none",
+          stroke: stroke || "#94a3b8",
+          "stroke-width": "1.8"
+        }, svg);
+      }
+
+      function drawNode(x, y, w, h, label, styleObj, targetId, status) {
+        const g = el("g", { class: "mm-node", "data-status": status || "branch" }, svg);
+        el("rect", {
+          x: x - w / 2,
+          y: y - h / 2,
+          width: w,
+          height: h,
+          rx: 8,
+          fill: styleObj.fill,
+          stroke: styleObj.stroke,
+          "stroke-width": "1.6"
+        }, g);
+        const t = el("text", {
+          x: x,
+          y: y + 4,
+          "text-anchor": "middle",
+          "font-size": "12",
+          "font-weight": "700",
+          fill: styleObj.text
+        }, g);
+        t.textContent = label;
+        if (targetId) {
+          g.addEventListener("click", () => {
+            const elTarget = document.getElementById(targetId);
+            if (elTarget) {
+              elTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+              highlightModule(targetId);
+            }
+          });
+        }
+      }
+
+      // Root node
+      const rootX = 640, rootY = 380;
+      drawNode(rootX, rootY, 136, 46, "AI 核心概念", colors.root, null, "root");
+
+      // Right branches
+      branchMap.right.forEach(({ branch, yCenter }) => {
+        const bx = 815;
+        drawCurve(rootX + 68, rootY, bx - 68, yCenter, "#3b82f6");
+        drawNode(bx, yCenter, 136, 36, branch.title.replace(/^[一二三四五六]、/, ""), colors.branch, `branch-${branch.id}`, "branch");
+
+        const mods = branch.modules;
+        const gap = 42;
+        const startY = yCenter - ((mods.length - 1) * gap) / 2;
+        mods.forEach((m, idx) => {
+          const my = startY + idx * gap;
+          const mx = 1090;
+          const st = colors[m.status];
+          drawCurve(bx + 68, yCenter, mx - 120, my, st.stroke);
+          const prefix = m.status === "implemented" ? "✓ " : (m.status === "partial" ? "◐ " : "✕ ");
+          const shortName = m.name.length > 18 ? m.name.slice(0, 17) + "…" : m.name;
+          drawNode(mx, my, 240, 30, prefix + shortName, st, m.id, m.status);
+        });
+      });
+
+      // Left branches
+      branchMap.left.forEach(({ branch, yCenter }) => {
+        const bx = 465;
+        drawCurve(rootX - 68, rootY, bx + 68, yCenter, "#3b82f6");
+        const cleanTitle = branch.title.replace(/^[一二三四五六]、/, "").split(" ")[0];
+        drawNode(bx, yCenter, 136, 36, cleanTitle, colors.branch, `branch-${branch.id}`, "branch");
+
+        const mods = branch.modules;
+        const gap = mods.length > 6 ? 38 : 44;
+        const startY = yCenter - ((mods.length - 1) * gap) / 2;
+        mods.forEach((m, idx) => {
+          const my = startY + idx * gap;
+          const mx = 190;
+          const st = colors[m.status];
+          drawCurve(bx - 68, yCenter, mx + 120, my, st.stroke);
+          const prefix = m.status === "implemented" ? "✓ " : (m.status === "partial" ? "◐ " : "✕ ");
+          const shortName = m.name.length > 18 ? m.name.slice(0, 17) + "…" : m.name;
+          drawNode(mx, my, 240, 30, prefix + shortName, st, m.id, m.status);
+        });
+      });
+    }
+
+    // -------------------------------------------------------- Interactions
+    function highlightModule(id) {
+      document.querySelectorAll(".module-card").forEach(c => c.classList.remove("highlight"));
+      const target = document.getElementById(id);
+      if (target) {
+        target.classList.add("highlight");
+        setTimeout(() => target.classList.remove("highlight"), 2400);
+      }
+    }
+
+    function applyFilterAndSearch() {
+      const activeBtn = document.querySelector(".filter-btn.active");
+      const filter = activeBtn ? activeBtn.dataset.filter : "all";
+      const query = (document.getElementById("search-input").value || "").trim().toLowerCase();
+
+      document.querySelectorAll(".branch-section[id^='branch-']").forEach(sec => {
+        let visibleCards = 0;
+        sec.querySelectorAll(".module-card").forEach(card => {
+          const statusMatch = filter === "all" || card.dataset.status === filter;
+          const textMatch = !query || card.innerText.toLowerCase().includes(query);
+          const show = statusMatch && textMatch;
+          card.classList.toggle("hidden", !show);
+          if (show) visibleCards++;
+        });
+        sec.classList.toggle("hidden", visibleCards === 0);
+      });
+
+      // Dim unmatched SVG nodes when filtering
+      document.querySelectorAll(".mm-node").forEach(node => {
+        const st = node.getAttribute("data-status");
+        if (st === "root" || st === "branch" || filter === "all") {
+          node.classList.remove("dimmed");
+        } else {
+          node.classList.toggle("dimmed", st !== filter);
+        }
+      });
+
+      // Filter glossary if searching
+      document.querySelectorAll(".glossary-card").forEach(card => {
+        const match = !query || card.innerText.toLowerCase().includes(query);
+        card.classList.toggle("hidden", !match);
+      });
+    }
+
+    function bindEvents() {
+      document.getElementById("filter-group").addEventListener("click", e => {
+        const btn = e.target.closest(".filter-btn");
+        if (!btn) return;
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        applyFilterAndSearch();
+      });
+
+      document.getElementById("search-input").addEventListener("input", applyFilterAndSearch);
+
+      // Theme toggle
+      const themeBtn = document.getElementById("theme-toggle");
+      themeBtn.addEventListener("click", () => {
+        document.body.classList.toggle("dark");
+        themeBtn.textContent = document.body.classList.contains("dark") ? "浅色" : "深色";
+      });
+
+      // Term popover
+      const toast = document.getElementById("term-toast");
+      const toastTitle = document.getElementById("term-toast-title");
+      const toastBody = document.getElementById("term-toast-body");
+
+      document.body.addEventListener("click", e => {
+        const termEl = e.target.closest(".term");
+        if (!termEl) return;
+        const key = termEl.dataset.term;
+        const def = GLOSSARY[key];
+        if (!def) return;
+        toastTitle.textContent = `📖 ${key}`;
+        toastBody.textContent = def;
+        toast.classList.add("visible");
+      });
+
+      document.getElementById("term-toast-close").addEventListener("click", () => {
+        toast.classList.remove("visible");
+      });
+    }
+
+    // Boot
+    renderStats();
+    renderSidebar();
+    renderBranches();
+    renderGlossary();
+    renderMindMapSVG();
+    bindEvents();
+  </script>
+</body>
+</html>

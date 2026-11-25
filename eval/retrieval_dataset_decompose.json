@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "description": "DECOMPOSITION 策略 + 英文语料召回测试集。10 条中文多步问题，答案全部落在 bitcoin_en.pdf 里，用来量化「改写层是否为每条子查询产出英文检索词」对命中率的影响。段号为 Doc.chunks 的 1-based 段号。",
+  "queries": [
+    {
+      "id": "d01",
+      "category": "cross_lingual_decompose",
+      "query": "先说明白皮书里交易手续费如何逐步取代区块奖励，再解释这个过程为什么能让货币总量不再膨胀",
+      "relevant": [["bitcoin_en.pdf", 6]],
+      "note": "手续费过渡 + inflation free，同一段"
+    },
+    {
+      "id": "d02",
+      "category": "cross_lingual_decompose",
+      "query": "对比完整节点自行验证交易和 SPV 只靠区块头验证这两种方式，并说明 SPV 凭什么能确认一笔交易已被网络接受",
+      "relevant": [["bitcoin_en.pdf", 7]],
+      "note": "Simplified Payment Verification 全在该段"
+    },
+    {
+      "id": "d03",
+      "category": "cross_lingual_decompose",
+      "query": "先在中文教程里找出区块链对分叉的解释，再对照英文白皮书里节点的实际处理规则，说明两条等长链最终靠什么打破平局、全网回到同一条链上",
+      "relevant": [["bitcoin_en.pdf", 5]],
+      "note": "跨数据源协同 + 最长链 / tie broken by next proof-of-work"
+    },
+    {
+      "id": "d04",
+      "category": "cross_lingual_decompose",
+      "query": "先在白皮书里找出工作量证明难度是怎么定义的，再据此解释为什么生成一个合法区块要指数级工作量、而验证它只要执行一次哈希",
+      "relevant": [["bitcoin_en.pdf", 4]],
+      "note": "两步有依赖：先取定义，再推结论"
+    },
+    {
+      "id": "d05",
+      "category": "cross_lingual_decompose",
+      "query": "先说明白皮书用什么模型估算攻击者从落后若干区块的位置追上来的概率，再解释为什么这里可以用泊松分布来建模",
+      "relevant": [["bitcoin_en.pdf", 9], ["bitcoin_en.pdf", 10]],
+      "note": "赌徒破产 + 泊松分布，跨两段"
+    },
+    {
+      "id": "d06",
+      "category": "cross_lingual_decompose",
+      "query": "先找出白皮书隐私章节要求的具体做法，再结合中英两份资料解释为什么每笔交易都要换一对新密钥，最后说明多输入交易为什么仍会泄露关联",
+      "relevant": [["bitcoin_en.pdf", 8]],
+      "note": "三步递进，Privacy 章节"
+    },
+    {
+      "id": "d07",
+      "category": "cross_lingual_decompose",
+      "query": "说明白皮书为什么认为传统依赖可信第三方的电子支付成本高且不可逆，再说明它提出的替代方案建立在什么基础上",
+      "relevant": [["bitcoin_en.pdf", 2]],
+      "note": "信任成本 + cryptographic proof instead of trust"
+    },
+    {
+      "id": "d08",
+      "category": "cross_lingual_decompose",
+      "query": "先找出白皮书里回收磁盘空间依赖的是哪种数据结构，再据此说明为什么修剪掉已被埋深的旧交易不会破坏区块自身的哈希",
+      "relevant": [["bitcoin_en.pdf", 6]],
+      "note": "先取数据结构（Merkle Tree），再推结论"
+    },
+    {
+      "id": "d09",
+      "category": "cross_lingual_decompose",
+      "query": "先说明白皮书靠什么规则判定哪一笔交易才算数，再据此解释为什么为了在没有可信第三方时判断先后，交易必须公开广播并形成单一历史顺序",
+      "relevant": [["bitcoin_en.pdf", 3]],
+      "note": "earliest transaction counts + publicly announced"
+    },
+    {
+      "id": "d10",
+      "category": "cross_lingual_decompose",
+      "query": "说明为什么光有数字签名还不够防住双重支付，以及白皮书用什么样的链式结构来补上这一环",
+      "relevant": [["bitcoin_en.pdf", 1]],
+      "note": "摘要里的 double-spending 与时间戳链"
+    }
+  ]
+}

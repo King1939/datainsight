@@ -22,12 +22,15 @@ from __future__ import annotations
 
 import io
 import re
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Sequence
 
 import pandas as pd
 
-from .config import DOC_CHUNK_CHARS, MAX_DOC_CHARS
+from .config import DOC_CHUNK_CHARS, IMAGE_MAX_PER_DOC, MAX_DOC_CHARS
+from .images import DocImage, normalize_image
 
 # 后缀 -> 内部类型。日志和 txt 走同一条路，没必要分开写。
 KIND_BY_SUFFIX: dict[str, str] = {
@@ -52,6 +55,12 @@ KIND_BY_SUFFIX: dict[str, str] = {
     ".xlsx": "xlsx",
     ".xlsm": "xlsx",
     ".xls": "xls-legacy",
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".webp": "image",
+    ".gif": "image",
+    ".bmp": "image",
 }
 
 # 一次读几张工作表、每张读多少行。超过就截断并说明——
@@ -102,10 +111,18 @@ class Doc:
     note: str = ""
     path: str = ""  # 落盘位置，删除时要它；不参与文本内容
     owned: bool = True  # 文件归不归这里：储藏区的文件归储藏区，这里只能撤登记
+    images: list[DocImage] = field(default_factory=list)
     chunks: list[str] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
         self.chunks = split_chunks(self.text) or [""]
+        if not self.text.strip() and self.images:
+            # 只有图片没有文字时补出索引块，保证 parts >= 1 且模型看得到图片位置
+            lines = [
+                f"[图片 {idx}：{img.location or img.name} · {img.width}×{img.height}]"
+                for idx, img in enumerate(self.images, 1)
+            ]
+            self.chunks = ["\n".join(lines)]
 
     @property
     def chars(self) -> int:
@@ -114,6 +131,13 @@ class Doc:
     @property
     def parts(self) -> int:
         return len(self.chunks)
+
+    @property
+    def image_count(self) -> int:
+        return len(self.images)
+
+    def images_for_part(self, part: int) -> list[DocImage]:
+        return [img for img in self.images if img.part == part]
 
 
 def read_table(raw: bytes) -> pd.DataFrame | None:
@@ -199,14 +223,83 @@ def _decode(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
-def _read_text(path: Path) -> tuple[str, str]:
+_IMG_MARKER_RE = re.compile(r"\[图片 (\d+)：")
+_PAGE_HEAD_RE = re.compile(r"【第 (\d+) 页】")
+_DOCX_A_BLIP = "{http://schemas.openxmlformats.org/drawingml/2006/main}blip"
+_DOCX_R_EMBED = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+_DOCX_V_IMG = "{urn:schemas-microsoft-com:vml}imagedata"
+_DOCX_R_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+
+
+def _collect_image(
+    collected: list[DocImage],
+    seen_ids: set[str],
+    raw: bytes,
+    *,
+    name: str = "",
+    location: str = "",
+) -> str:
+    """规范化图片、按内容哈希去重，并返回插入正文的图片锚点文本。"""
+    if not raw or len(collected) >= IMAGE_MAX_PER_DOC:
+        return ""
+    img = normalize_image(raw, name=name, location=location)
+    if img is None or img.id in seen_ids:
+        return ""
+    seen_ids.add(img.id)
+    collected.append(img)
+    idx = len(collected)
+    dims = f" · {img.width}×{img.height}" if img.width and img.height else ""
+    where = location or img.name
+    return f"[图片 {idx}：{where}{dims}]"
+
+
+def _assign_image_parts(chunks: Sequence[str], images: list[DocImage]) -> list[DocImage]:
+    """把抽取到的图片映射回 1-based 分段号（part）。"""
+    if not images:
+        return []
+    total_parts = max(1, len(chunks))
+    marker_to_part: dict[int, int] = {}
+    page_to_part: dict[str, int] = {}
+
+    for part_idx, chunk in enumerate(chunks, 1):
+        for match in _IMG_MARKER_RE.finditer(chunk):
+            marker_to_part.setdefault(int(match.group(1)), part_idx)
+        for match in _PAGE_HEAD_RE.finditer(chunk):
+            page_to_part.setdefault(f"第 {match.group(1)} 页", part_idx)
+
+    total_imgs = len(images)
+    assigned: list[DocImage] = []
+    for idx, img in enumerate(images, 1):
+        part = marker_to_part.get(idx) or page_to_part.get(img.location)
+        if not part:
+            if total_parts == 1:
+                part = 1
+            else:
+                part = min(total_parts, max(1, int(((idx - 1) * total_parts) // total_imgs) + 1))
+        assigned.append(img.with_part(part))
+    return assigned
+
+
+def _read_text(path: Path) -> tuple[str, str, list[DocImage]]:
     text = _decode(path.read_bytes())
     if not text:
         raise DocumentError("这个文件看起来是二进制内容，不是文本。")
-    return text, ""
+    return text, "", []
 
 
-def _read_pdf(path: Path) -> tuple[str, str]:
+def _read_image(path: Path) -> tuple[str, str, list[DocImage]]:
+    raw = path.read_bytes()
+    img = normalize_image(raw, name=path.name, part=1, location="图片文件")
+    if img is None:
+        raise DocumentError(
+            f"`{path.name}` 无法识别为有效图片（支持 PNG / JPEG / WEBP / GIF / BMP）。"
+        )
+    dims = f" · {img.width}×{img.height}" if img.width and img.height else ""
+    text = f"[图片 1：{img.name}{dims} ({img.mime_type})]"
+    return text, "", [img]
+
+
+def _read_pdf(path: Path) -> tuple[str, str, list[DocImage]]:
     try:
         from pypdf import PdfReader
     except ImportError as exc:  # pragma: no cover - 装了就不会走到
@@ -222,50 +315,200 @@ def _read_pdf(path: Path) -> tuple[str, str]:
 
     pages: list[str] = []
     empty = 0
+    collected: list[DocImage] = []
+    seen_ids: set[str] = set()
+
     for index, page in enumerate(reader.pages, 1):
         try:
             body = (page.extract_text() or "").strip()
         except Exception:  # noqa: BLE001  单页坏了不该让整份文件失败
             body = ""
-        if body:
+
+        markers: list[str] = []
+        if len(collected) < IMAGE_MAX_PER_DOC:
+            try:
+                raw_images = list(getattr(page, "images", ()) or ())
+            except Exception:  # noqa: BLE001  部分 PDF 图片流解码异常不应拖垮文本抽取
+                raw_images = []
+            for img_idx, img_file in enumerate(raw_images, 1):
+                if len(collected) >= IMAGE_MAX_PER_DOC:
+                    break
+                raw_bytes = getattr(img_file, "data", b"") or b""
+                raw_name = getattr(img_file, "name", "") or f"p{index}_img{img_idx}"
+                marker = _collect_image(
+                    collected,
+                    seen_ids,
+                    raw_bytes,
+                    name=raw_name,
+                    location=f"第 {index} 页",
+                )
+                if marker:
+                    markers.append(marker)
+
+        if body and markers:
+            pages.append(f"【第 {index} 页】\n{body}\n" + "\n".join(markers))
+        elif body:
             pages.append(f"【第 {index} 页】\n{body}")
+        elif markers:
+            pages.append(f"【第 {index} 页】（页面图片）\n" + "\n".join(markers))
         else:
             empty += 1
 
     text = "\n\n".join(pages)
-    if not text:
-        return "", "这份 PDF 没有可抽取的文字层（很可能是扫描件/图片），需要 OCR 才能读。"
-    note = f"共 {len(reader.pages)} 页，其中 {empty} 页没有文字层。" if empty else ""
-    return text, note
+    if not text and not collected:
+        return "", "这份 PDF 没有可抽取的文字层（很可能是扫描件/图片），需要 OCR 才能读。", []
+
+    notes: list[str] = []
+    if empty:
+        notes.append(f"共 {len(reader.pages)} 页，其中 {empty} 页没有文字层。")
+    if collected:
+        notes.append(f"含 {len(collected)} 张图片。")
+    return text, "".join(notes), collected
 
 
-def _read_docx(path: Path) -> tuple[str, str]:
+def _docx_extract_from_element(
+    element: Any,
+    rels: Any,
+    collected: list[DocImage],
+    seen_ids: set[str],
+    *,
+    location: str,
+) -> list[str]:
+    markers: list[str] = []
+    for node in element.iter():
+        if len(collected) >= IMAGE_MAX_PER_DOC:
+            break
+        rid = ""
+        if node.tag == _DOCX_A_BLIP:
+            rid = node.get(_DOCX_R_EMBED) or ""
+        elif node.tag == _DOCX_V_IMG:
+            rid = node.get(_DOCX_R_ID) or ""
+        if not rid or rid not in rels:
+            continue
+        rel = rels[rid]
+        if getattr(rel, "is_external", False):
+            continue
+        target_part = getattr(rel, "target_part", None)
+        if target_part is None:
+            continue
+        ctype = str(getattr(target_part, "content_type", "") or "").lower()
+        if ctype and not ctype.startswith("image/"):
+            continue
+        raw_bytes = getattr(target_part, "blob", b"") or b""
+        part_name = str(getattr(target_part, "partname", "") or "")
+        marker = _collect_image(
+            collected,
+            seen_ids,
+            raw_bytes,
+            name=Path(part_name).name if part_name else "",
+            location=location,
+        )
+        if marker:
+            markers.append(marker)
+    return markers
+
+
+def _read_docx(path: Path) -> tuple[str, str, list[DocImage]]:
     try:
         from docx import Document as DocxDocument
+        from docx.oxml.ns import qn
     except ImportError as exc:  # pragma: no cover
         raise MissingDependency(
             "读 Word(.docx) 需要 python-docx：`pip install python-docx`"
         ) from exc
 
     document = DocxDocument(str(path))
-    parts = [p.text.strip() for p in document.paragraphs if p.text.strip()]
+    parts: list[str] = []
+    collected: list[DocImage] = []
+    seen_ids: set[str] = set()
+    rels = document.part.rels
 
-    # 表格文字不在 paragraphs 里，必须单独取，否则"数据全在表里"的文档读出来是空的
-    for index, table in enumerate(document.tables, 1):
-        rows = [
-            " | ".join(cell.text.strip() for cell in row.cells) for row in table.rows
-        ]
-        rows = [r for r in rows if r.strip(" |")]
-        if rows:
-            parts.append(f"【表 {index}】\n" + "\n".join(rows))
+    para_map = {p._element: p for p in document.paragraphs}
+    table_map = {t._element: t for t in document.tables}
+    table_idx = 0
+
+    for child in document.element.body:
+        if child.tag == qn("w:p"):
+            para = para_map.get(child)
+            text_line = para.text.strip() if para is not None else ""
+            markers = _docx_extract_from_element(
+                child, rels, collected, seen_ids, location="文档正文"
+            )
+            block_lines = [x for x in (text_line, *markers) if x]
+            if block_lines:
+                parts.append("\n".join(block_lines))
+        elif child.tag == qn("w:tbl"):
+            table_idx += 1
+            table = table_map.get(child)
+            rows: list[str] = []
+            if table is not None:
+                rows = [
+                    " | ".join(cell.text.strip() for cell in row.cells) for row in table.rows
+                ]
+                rows = [r for r in rows if r.strip(" |")]
+            markers = _docx_extract_from_element(
+                child, rels, collected, seen_ids, location=f"表 {table_idx}"
+            )
+            if rows or markers:
+                body_lines = list(rows) + markers
+                parts.append(f"【表 {table_idx}】\n" + "\n".join(body_lines))
+
+    # 兜底：页眉/页脚或未出现在 body 顶层的关联图片
+    for section in getattr(document, "sections", ()):
+        for hf in (getattr(section, "header", None), getattr(section, "footer", None)):
+            if hf is None:
+                continue
+            markers = _docx_extract_from_element(
+                hf._element, hf.part.rels, collected, seen_ids, location="页眉页脚"
+            )
+            if markers:
+                parts.append("\n".join(markers))
 
     text = "\n\n".join(parts)
-    if not text:
-        return "", "这份 Word 里没抽到文字（可能内容都在图片或文本框里）。"
-    return text, ""
+    if not text and not collected:
+        return "", "这份 Word 里没抽到文字（可能内容都在图片或文本框里）。", []
+    note = f"含 {len(collected)} 张图片。" if collected else ""
+    return text, note, collected
 
 
-def _read_pptx(path: Path) -> tuple[str, str]:
+def _pptx_collect_slide_images(
+    shapes: Any,
+    collected: list[DocImage],
+    seen_ids: set[str],
+    *,
+    slide_index: int,
+) -> list[str]:
+    markers: list[str] = []
+    for shape in shapes:
+        if len(collected) >= IMAGE_MAX_PER_DOC:
+            break
+        sub_shapes = getattr(shape, "shapes", None)
+        if sub_shapes is not None:
+            markers.extend(
+                _pptx_collect_slide_images(
+                    sub_shapes, collected, seen_ids, slide_index=slide_index
+                )
+            )
+            continue
+        try:
+            pic = shape.image
+        except Exception:  # noqa: BLE001  非图片形状访问 .image 会抛 ValueError/AttributeError
+            continue
+        raw_bytes = getattr(pic, "blob", b"") or b""
+        img_name = getattr(pic, "filename", "") or f"slide{slide_index}_img"
+        marker = _collect_image(
+            collected,
+            seen_ids,
+            raw_bytes,
+            name=img_name,
+            location=f"第 {slide_index} 页",
+        )
+        if marker:
+            markers.append(marker)
+    return markers
+
+
+def _read_pptx(path: Path) -> tuple[str, str, list[DocImage]]:
     try:
         from pptx import Presentation
     except ImportError as exc:  # pragma: no cover
@@ -276,6 +519,9 @@ def _read_pptx(path: Path) -> tuple[str, str]:
     prs = Presentation(str(path))
     parts: list[str] = []
     empty = 0
+    collected: list[DocImage] = []
+    seen_ids: set[str] = set()
+
     for index, slide in enumerate(prs.slides, 1):
         lines: list[str] = []
         for shape in slide.shapes:
@@ -294,8 +540,13 @@ def _read_pptx(path: Path) -> tuple[str, str]:
         if slide.has_notes_slide:
             notes = (slide.notes_slide.notes_text_frame.text or "").strip()
 
-        if lines:
-            block = f"【第 {index} 页】\n" + "\n".join(lines)
+        markers = _pptx_collect_slide_images(
+            slide.shapes, collected, seen_ids, slide_index=index
+        )
+
+        if lines or markers:
+            body_lines = lines + markers
+            block = f"【第 {index} 页】\n" + "\n".join(body_lines)
             if notes:
                 block += f"\n（备注）{notes}"
             parts.append(block)
@@ -305,13 +556,47 @@ def _read_pptx(path: Path) -> tuple[str, str]:
             empty += 1
 
     text = "\n\n".join(parts)
-    if not text:
-        return "", "这份 PPT 没抽到文字（可能整页都是图片）。"
-    note = f"共 {len(prs.slides)} 页，其中 {empty} 页没有文字。" if empty else ""
-    return text, note
+    if not text and not collected:
+        return "", "这份 PPT 没抽到文字（可能整页都是图片）。", []
+    note_items: list[str] = []
+    if empty:
+        note_items.append(f"共 {len(prs.slides)} 页，其中 {empty} 页没有文字。")
+    if collected:
+        note_items.append(f"含 {len(collected)} 张图片。")
+    return text, "".join(note_items), collected
 
 
-def _read_xlsx(path: Path) -> tuple[str, str]:
+def _xlsx_extract_images(path: Path) -> list[DocImage]:
+    """从 .xlsx/.xlsm ZIP 容器的 xl/media/ 中抽取内嵌图片，不破坏 read_only 低内存读取。"""
+    collected: list[DocImage] = []
+    seen_ids: set[str] = set()
+    try:
+        with zipfile.ZipFile(path, "r") as zf:
+            media_names = sorted(
+                name
+                for name in zf.namelist()
+                if name.lower().startswith("xl/media/") and not name.endswith("/")
+            )
+            for name in media_names:
+                if len(collected) >= IMAGE_MAX_PER_DOC:
+                    break
+                try:
+                    raw_bytes = zf.read(name)
+                except OSError:
+                    continue
+                _collect_image(
+                    collected,
+                    seen_ids,
+                    raw_bytes,
+                    name=Path(name).name,
+                    location="工作簿插图",
+                )
+    except (OSError, zipfile.BadZipFile):
+        return []
+    return collected
+
+
+def _read_xlsx(path: Path) -> tuple[str, str, list[DocImage]]:
     """Excel 抽成「每张表：列名 + 前几十行」。
 
     用 openpyxl 的 read_only + data_only：read_only 才不会把整本表读进内存
@@ -351,35 +636,47 @@ def _read_xlsx(path: Path) -> tuple[str, str]:
     finally:
         book.close()
 
+    collected = _xlsx_extract_images(path)
+    if collected:
+        img_lines = [
+            f"[图片 {idx}：{img.location} · {img.width}×{img.height}]"
+            if img.width and img.height
+            else f"[图片 {idx}：{img.location}]"
+            for idx, img in enumerate(collected, 1)
+        ]
+        blocks.append("【工作簿内嵌图片】\n" + "\n".join(img_lines))
+
     if not blocks:
-        return "", "这张 Excel 里没抽到任何单元格内容。"
+        return "", "这张 Excel 里没抽到任何单元格内容。", []
 
     notes = []
     if truncated:
         notes.append(
             f"工作表 {', '.join(truncated)} 只列了前 {MAX_SHEET_ROWS} 行"
         )
+    if collected:
+        notes.append(f"含 {len(collected)} 张内嵌图片")
     notes.append("要按 SQL 查询整张表，请另存为 CSV 再上传")
-    return "\n\n".join(blocks), "；".join(notes)
+    return "\n\n".join(blocks), "；".join(notes), collected
 
 
-def _read_xls(path: Path, raw: bytes) -> tuple[str, str]:
+def _read_xls(path: Path, raw: bytes) -> tuple[str, str, list[DocImage]]:
     """.xls 是 Excel 97-2003 的二进制格式，openpyxl 读不了。"""
     if not _looks_binary(raw):
-        return _decode(raw), "这个文件其实是纯文本（只是后缀写成了 .xls），已按文本读取。"
+        return _decode(raw), "这个文件其实是纯文本（只是后缀写成了 .xls），已按文本读取。", []
     raise DocumentError(
         "Excel 97-2003 的旧版 .xls 读不了。请在 Excel / WPS 里另存为 .xlsx 再读。"
     )
 
 
-def _read_legacy(path: Path, raw: bytes) -> tuple[str, str]:
+def _read_legacy(path: Path, raw: bytes) -> tuple[str, str, list[DocImage]]:
     """.doc / .ppt：老二进制格式，明确拒绝，但两条常见的"伪装的"能救回来。"""
     if raw[:5] == b"{\\rtf":
         raise DocumentError(
             "这是 RTF 文件（后缀写成了 .doc）。请在 Word 里打开后另存为 .docx 再上传。"
         )
     if not _looks_binary(raw):
-        return _decode(raw), "这个文件其实是纯文本（只是后缀写成了 .doc），已按文本读取。"
+        return _decode(raw), "这个文件其实是纯文本（只是后缀写成了 .doc），已按文本读取。", []
     raise DocumentError(
         "Word 97-2003 的旧版 .doc/.ppt 是二进制格式，没有可靠的纯 Python 解析方式。"
         "请在 Word / WPS 里另存为 .docx（或 .pptx）再上传。"
@@ -392,6 +689,40 @@ def _clip(text: str) -> tuple[str, str]:
         return text, ""
     head = text[:MAX_DOC_CHARS]
     return head, f"原文约 {len(text):,} 字，已截断为前 {MAX_DOC_CHARS:,} 字。"
+
+
+def _dispatch_extract(path: Path, kind: str, raw: bytes) -> tuple[str, str, list[DocImage]]:
+    if kind == "text":
+        return _read_text(path)
+    if kind == "pdf":
+        return _read_pdf(path)
+    if kind == "docx":
+        return _read_docx(path)
+    if kind == "pptx":
+        return _read_pptx(path)
+    if kind == "xlsx":
+        return _read_xlsx(path)
+    if kind == "image":
+        return _read_image(path)
+    if kind == "xls-legacy":
+        return _read_xls(path, raw)
+    return _read_legacy(path, raw)
+
+
+def extract_images_for_chunks(path: Path, chunks: Sequence[str]) -> list[DocImage]:
+    """仅抽取文档图片并按现有 chunks 对齐分段号（供旧版储藏区文件惰性补全用）。"""
+    path = Path(path)
+    kind = KIND_BY_SUFFIX.get(path.suffix.lower())
+    if kind not in {"pdf", "docx", "pptx", "xlsx", "image"} or not path.exists():
+        return []
+    try:
+        raw = path.read_bytes()
+        if not raw:
+            return []
+        _, _, raw_images = _dispatch_extract(path, kind, raw)
+    except Exception:  # noqa: BLE001
+        return []
+    return _assign_image_parts(chunks, raw_images)
 
 
 def extract(path: Path, name: str | None = None) -> Doc:
@@ -408,30 +739,20 @@ def extract(path: Path, name: str | None = None) -> Doc:
     if not raw:
         raise DocumentError("文件是空的（0 字节）。")
 
-    if kind == "text":
-        text, note = _read_text(path)
-    elif kind == "pdf":
-        text, note = _read_pdf(path)
-    elif kind == "docx":
-        text, note = _read_docx(path)
-    elif kind == "pptx":
-        text, note = _read_pptx(path)
-    elif kind == "xlsx":
-        text, note = _read_xlsx(path)
-    elif kind == "xls-legacy":
-        text, note = _read_xls(path, raw)
-    else:
-        text, note = _read_legacy(path, raw)
+    text, note, raw_images = _dispatch_extract(path, kind, raw)
 
     text, clipped = _clip(_normalize(text))
     notes = "；".join(n for n in (note, clipped) if n)
-    return Doc(
+    doc = Doc(
         name=name,
         kind=suffix.lstrip(".") or kind,
         text=text,
         note=notes,
         path=str(path),
     )
+    if raw_images:
+        doc.images = _assign_image_parts(doc.chunks, raw_images)
+    return doc
 
 
 def _normalize(text: str) -> str:
@@ -444,12 +765,14 @@ def _normalize(text: str) -> str:
 
 __all__ = [
     "Doc",
+    "DocImage",
     "DocumentError",
     "MissingDependency",
     "KIND_BY_SUFFIX",
     "TABLE_SUFFIXES",
     "UPLOAD_SUFFIXES",
     "extract",
+    "extract_images_for_chunks",
     "read_table",
     "split_chunks",
 ]

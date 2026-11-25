@@ -425,10 +425,18 @@ def document_digest(key: str | None = None) -> list[dict[str, Any]]:
     
     主要给系统的 System Prompt（系统提示词）使用，让 AI 知道用户手头有哪些资料可供查阅。
     """
-    return [
-        {"name": d.name, "kind": d.kind, "chars": d.chars, "parts": d.parts}
-        for d in documents(key)
-    ]
+    items: list[dict[str, Any]] = []
+    for d in documents(key):
+        row: dict[str, Any] = {
+            "name": d.name,
+            "kind": d.kind,
+            "chars": d.chars,
+            "parts": d.parts,
+        }
+        if d.image_count:
+            row["images"] = d.image_count
+        items.append(row)
+    return items
 
 
 # ==============================================================================

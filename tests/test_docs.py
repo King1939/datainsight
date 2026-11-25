@@ -22,12 +22,21 @@ ROOT = Path(__file__).resolve().parent.parent
 import sys  # noqa: E402
 
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tests"))   # 直接 -m unittest tests/test_docs.py 时也能 import _isolation
 
 from app import readers, uploads  # noqa: E402
 from app.tools import data_tools as dt  # noqa: E402
 from app.tools import registry  # noqa: E402
+from _isolation import isolate_embeddings  # noqa: E402
 
 KEY = "ut_docs"
+
+
+def setUpModule() -> None:
+    # 本机 .env 配了真实向量模型。不隔离的话，search_document 会走混合检索真的发
+    # HTTP 请求：测试变慢、要联网，还会往真实 data/vault/embeddings.db 写向量。
+    # 隔离后 embedding 不可用 -> 自动退回纯 BM25，这些用例仍是纯离线确定性。
+    isolate_embeddings()
 
 
 def _has(module: str) -> bool:
@@ -354,6 +363,111 @@ class TestDocumentTools(unittest.TestCase):
     def test_tools_do_not_leak_other_session(self):
         dt.use_dataset("ut_docs_empty")
         self.assertIn("还没有上传", registry.call("list_documents", {}))
+
+
+# ---------------------------------------------------------------- 检索（跨文件 / 多词 / 候选卡片）
+
+
+class TestSearchScopeAndRanking(unittest.TestCase):
+    """search_document 升级成"跨文件 + 多关键词 + 候选卡片"后的契约。
+
+    这四条是这一版存在的理由，改坏了就等于退回旧版：
+      1. 不给 name 能搜到第二份文件（省掉一轮 list_documents 猜测）
+      2. 多关键词是 OR（"违约金 赔偿" 不要求原文连续出现这个长串）
+      3. 命中词多的段落排在前面（否则候选卡片等于随机给三段）
+      4. 返回的是片段不是整段（这是 token 下降的直接来源）
+    """
+
+    def setUp(self) -> None:
+        # 先清盘再清登记：clear_documents 只删它认识的路径，上一轮如果留下孤儿文件，
+        # 这一轮的同名上传就会被改叫 alpha(2).txt，断言里写死文件名会随机红。
+        uploads.discard(KEY)
+        dt.clear_documents(KEY)
+        dt.use_dataset(KEY)
+        # 第一章只提"赔偿"；第二章三个词全都有。用来验证排序不是按段号。
+        # 末尾那句"是否存在"是给模糊降级的假命中测试准备的：它是个常见字面，
+        # 但不该把"不存在的词甲乙丙"这种查询变成"有结果"。
+        alpha = (
+            "第一章 赔偿说明（资产是否存在需核实）\n"
+            + "本节介绍背景。" * 200
+            + "\n第二章 违约责任\n"
+            + "甲方违反约定应承担责任。" * 150
+            + "\n违约金为合同总额的百分之十，赔偿上限不超过总价。"
+        )
+        dt.add_document("alpha.txt", alpha.encode("utf-8"), key=KEY)
+        dt.add_document(
+            "beta.txt", ("量子计算入门\n" + "叠加态与纠缠。" * 200).encode("utf-8"), key=KEY
+        )
+        dt.add_document(
+            "gamma.txt", ("区块链的创新应用\n" + "案例集。" * 100).encode("utf-8"), key=KEY
+        )
+        # 给"字散落各处"准备的：共识和机制各出现一次，中间隔两千多字，
+        # 但"共识机制"这个词整串从未出现。
+        dt.add_document(
+            "delta.txt",
+            ("共识需要多方确认。\n" + "本节介绍背景。" * 200 + "\n激励机制的设计。").encode("utf-8"),
+            key=KEY,
+        )
+
+    def tearDown(self) -> None:
+        dt.clear_documents(KEY)
+        uploads.discard(KEY)
+
+    def test_search_without_name_covers_all_documents(self):
+        text = registry.call("search_document", {"keyword": "量子"})
+        self.assertIn("beta.txt", text)
+        self.assertIn("份资料", text, "不指定 name 时要说清搜了几份，模型才知道范围")
+
+    def test_multiple_keywords_are_or(self):
+        text = registry.call("search_document", {"keyword": "量子 违约金"})
+        self.assertIn("beta.txt", text)
+        self.assertIn("alpha.txt", text)
+
+    def test_ranking_prefers_chunk_with_more_terms(self):
+        text = registry.call("search_document", {"keyword": "违约金 赔偿 上限"})
+        blocks = text.split("\n[")
+        self.assertGreaterEqual(len(blocks), 3, "至少两段候选")
+        top = blocks[1]
+        self.assertIn("alpha.txt", top)
+        self.assertIn("违约金", top, "命中三个词的那段必须排第一，而不是按段号")
+        self.assertIn("3 个词", top)
+
+    def test_returns_snippet_not_whole_chunk(self):
+        text = registry.call("search_document", {"keyword": "赔偿"})
+        self.assertIn("read_document", text)
+        # 一段是 2000 字，填一句 7 字的话会重复约 285 次。卡片只给一百来字，
+        # 所以这里允许十来次——要挡住的是"把整段倒回去"这种退化。
+        self.assertLess(len(text), 1200)
+        self.assertLess(text.count("本节介绍背景"), 30)
+
+    def test_exact_miss_falls_back_to_fuzzy_and_says_so(self):
+        # 原文是"区块链的创新应用"，问法少了"的"：整词一个都命中不了
+        text = registry.call("search_document", {"keyword": "区块链创新应用"})
+        self.assertIn("gamma.txt", text)
+        self.assertIn("模糊", text, "降级结果必须标注，不能伪装成精确命中")
+
+    def test_fuzzy_does_not_invent_hits_for_nonsense(self):
+        # "存在"是极常见的字面，按覆盖率挡掉之前，这句会返回几十段候选，
+        # 模型就会当成"文档里真在讲甲乙丙"。宁可说没找到。
+        text = registry.call("search_document", {"keyword": "不存在的词甲乙丙"})
+        self.assertIn("没找到", text)
+        self.assertNotIn("候选", text)
+
+    def test_fuzzy_rejects_scattered_bigrams(self):
+        # 覆盖率能过（2/3），但"共识"和"机制"隔了两千字——不是同一个词。
+        # 真实语料里踩到过：《区块链教程》里"共识机制"出现 0 次，
+        # 却因为这两个词各出现几次被判成命中。
+        text = registry.call("search_document", {"keyword": "共识机制", "name": "delta.txt"})
+        self.assertIn("没找到", text)
+
+    def test_unknown_name_lists_alternatives(self):
+        text = registry.call("search_document", {"keyword": "x", "name": "不存在.pdf"})
+        self.assertIn("没有名为", text)
+        self.assertIn("alpha.txt", text)
+
+    def test_keyword_still_required(self):
+        text = registry.call("search_document", {"name": "alpha.txt"})
+        self.assertIn("缺少必填参数", text)
 
 
 # ---------------------------------------------------------------- prompt

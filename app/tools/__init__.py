@@ -13,6 +13,7 @@
   pptx_tools    —— 幻灯片：make_pptx 从零排，edit_pptx 在已有文件上增量改
   doc_tools     —— 资料：list_documents / read_document / search_document
   file_tools    —— 本机文件：list_files / read_file / write_text_file
+  time_tools    —— 时钟：get_current_time（当前时间与常用相对时间区间）
 
 chart_tools 和 mindmap_tools 分开，是因为输入形状不同（两列数 vs 树），
 不是按"图"这个字分的。make_pptx 和 edit_pptx 留在同一个模块里，
@@ -65,6 +66,7 @@ from . import (  # noqa: E402,F401  注册副作用
     mindmap_tools,
     doc_tools,
     file_tools,
+    time_tools,
 )
 
 # pptx_tools 依赖 python-pptx，而它是**可选**依赖（requirements 里写了，但只装 pandas
@@ -87,4 +89,5 @@ __all__ = [
     "mindmap_tools",
     "doc_tools",
     "file_tools",
+    "time_tools",
 ]

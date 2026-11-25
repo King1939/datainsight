@@ -98,6 +98,15 @@ class TestRestore(ChatHistoryCase):
         labels = [b.label for b in at.sidebar.button]
         self.assertTrue(any("旧对话甲" in x for x in labels), labels)
 
+    def test_many_history_chats_render_in_scrollable_container(self):
+        for i in range(10):
+            chats.save(f"chat-{i:02d}", title=f"历史条目-{i:02d}", turns=[TURN])
+        at = self.app("chat-09")
+        self.assertEqual(len(at.exception), 0, list(at.exception))
+        labels = [b.label for b in at.sidebar.button]
+        self.assertTrue(any("历史条目-00" in x for x in labels), labels)
+        self.assertTrue(any("历史条目-08" in x for x in labels), labels)
+
 
 class TestFreshVisit(ChatHistoryCase):
     def test_first_visit_puts_id_in_url(self):

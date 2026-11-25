@@ -2,6 +2,7 @@ duckdb>=1.0
 pandas>=2.0
 matplotlib>=3.8
 streamlit>=1.28
+numpy>=1.24
 
 # 资料文件解析。四个都是**可选**的：缺了不影响 CSV 功能，
 # 只是上传对应格式时会收到一句"装一下 xxx"，而不是整个程序崩掉。
@@ -9,3 +10,8 @@ pypdf>=4.0
 python-docx>=1.1
 python-pptx>=0.6.23
 openpyxl>=3.1
+
+# 可选增强，不装也能跑：
+#   Pillow>=10.0                文档图片格式转换与缩放（没装则仅支持原生 PNG/JPEG/GIF/WEBP）
+#   jieba>=0.42                 中文分词（BM25 用；没装则退回纯 Python 中文 2-gram）
+#   sentence-transformers       本地离线向量模型（EMBEDDING_PROVIDER=local 时用）

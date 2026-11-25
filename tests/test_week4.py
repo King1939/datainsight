@@ -112,8 +112,12 @@ class TestBuildItem(unittest.TestCase):
         item = build_item("observation", {"name": "make_chart", "text": f"图表已生成：{path.as_posix()}"})
         self.assertEqual(item.chart, str(path))
 
-    def test_final_warning_error(self):
-        self.assertEqual(build_item("final", {"text": "答案"}).body, "答案")
+    def test_final_does_not_enter_panel(self):
+        """答案由界面单独渲染成气泡；面板里再放一张卡片就是同一句话显示两遍，
+        而且会被 MAX_BODY_CHARS 截断，跟下面那份完整答案对不上。"""
+        self.assertIsNone(build_item("final", {"text": "答案"}))
+
+    def test_warning_and_error(self):
         self.assertIn("中止", build_item("warning", {"message": "超出预算"}).title)
         self.assertIn("失败", build_item("error", {"message": "401"}).title)
 
@@ -206,8 +210,10 @@ class TestTraceLog(unittest.TestCase):
         log.push("step", {"step": 1, "tokens": 10, "latency": 0})
         log.push("tool_call", {"name": "run_sql", "args": "{}"})
         log.push("final", {"text": "完了"})
-        self.assertEqual([i.kind for i in log.items], ["step", "tool_call", "final"])
+        # final 事件照发（脚本和测试靠它判断收尾），但不落成一条展示记录
+        self.assertEqual([i.kind for i in log.items], ["step", "tool_call"])
         self.assertIn("第 1 步", log.to_markdown())
+        self.assertNotIn("最终回答", log.to_markdown())
 
     def test_charts(self):
         path = Path(tempfile.mkdtemp()) / "chart_9.png"

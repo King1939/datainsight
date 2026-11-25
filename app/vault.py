@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import threading
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
@@ -27,11 +28,16 @@ import pandas as pd
 
 from . import readers
 from .config import MAX_UPLOAD_MB, VAULT_DIR, VAULT_QUOTA_MB
+from .images import DocImage, ext_for_mime
 from .readers import Doc, DocumentError
 
 KIND_TABLE = "table"
 KIND_DOCUMENT = "document"
 INDEX_VERSION = 1
+_IMAGE_BEARING_SUFFIXES = {
+    ".pdf", ".docx", ".pptx", ".xlsx", ".xlsm",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp",
+}
 
 _LOCK = threading.Lock()
 _DOCS: dict[str, Doc] = {}
@@ -53,6 +59,7 @@ class Entry:
     chars: int = 0
     parts: int = 0
     note: str = ""
+    image_count: int = 0
 
     @property
     def path(self) -> Path:
@@ -61,6 +68,10 @@ class Entry:
     @property
     def text_path(self) -> Path:
         return _text_dir() / f"{self.file}.txt"
+
+    @property
+    def images_dir(self) -> Path:
+        return _images_dir() / self.file
 
     @property
     def is_table(self) -> bool:
@@ -80,6 +91,60 @@ def _text_dir() -> Path:
     path = VAULT_DIR / "text"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _images_dir() -> Path:
+    path = VAULT_DIR / "images"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _save_images(file_hash: str, images: list[DocImage]) -> list[DocImage]:
+    if not images:
+        return []
+    folder = _images_dir() / file_hash
+    folder.mkdir(parents=True, exist_ok=True)
+    manifest: list[dict] = []
+    stored: list[DocImage] = []
+    for img in images:
+        raw = img.read_bytes()
+        if not raw:
+            continue
+        fname = f"{img.id}{ext_for_mime(img.mime_type)}"
+        target = folder / fname
+        if not target.exists():
+            target.write_bytes(raw)
+        meta = img.to_meta()
+        meta["file"] = fname
+        manifest.append(meta)
+        stored.append(DocImage.from_meta(meta, path=str(target)))
+    (folder / "manifest.json").write_text(
+        json.dumps({"images": manifest}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return stored
+
+
+def _load_images(entry: Entry, chunks: list[str]) -> list[DocImage]:
+    manifest_path = entry.images_dir / "manifest.json"
+    if manifest_path.exists():
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            loaded: list[DocImage] = []
+            for item in data.get("images") or []:
+                fname = str(item.get("file") or "")
+                img_path = entry.images_dir / fname if fname else None
+                if img_path is not None and img_path.is_file():
+                    loaded.append(DocImage.from_meta(item, path=str(img_path)))
+            return loaded
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return []
+
+    if entry.suffix.lower() in _IMAGE_BEARING_SUFFIXES and entry.path.exists():
+        extracted = readers.extract_images_for_chunks(entry.path, chunks)
+        if extracted:
+            return _save_images(entry.file, extracted)
+    return []
 
 
 def _index_path() -> Path:
@@ -122,6 +187,7 @@ def _forget(entry: Entry, remaining: list[Entry]) -> None:
         return
     entry.path.unlink(missing_ok=True)
     entry.text_path.unlink(missing_ok=True)
+    shutil.rmtree(entry.images_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------- 读
@@ -189,6 +255,9 @@ def open_document(entry: Entry) -> Doc | None:
         path=key,
         owned=False,
     )
+    doc.images = _load_images(entry, doc.chunks)
+    if not doc.text.strip() and doc.images:
+        doc.__post_init__()
     _DOCS[key] = doc
     return doc
 
@@ -280,7 +349,15 @@ def add(name: str, raw: bytes) -> Entry:
                 target.unlink(missing_ok=True)
                 raise
             entry.text_path.write_text(doc.text, encoding="utf-8")
-            entry = replace(entry, chars=doc.chars, parts=doc.parts, note=doc.note)
+            if doc.images:
+                _save_images(digest, doc.images)
+            entry = replace(
+                entry,
+                chars=doc.chars,
+                parts=doc.parts,
+                note=doc.note,
+                image_count=len(doc.images),
+            )
 
         rest.append(entry)
         _save(rest)

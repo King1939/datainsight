@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "description": "DataInsight 开发期端到端生成质量评测集（忠实度 + 答案相关性）。每条用例提供三种问法：query（书面规范）、colloquial（口语化改写）、cross_lingual（跨语言英文提问），用于 A/B 对比前置改写在不同表述下的效果。",
+  "cases": [
+    {
+      "id": "g01",
+      "category": "doc_fact",
+      "source_mode": "vault",
+      "query": "海淀区信用就医的最高授信额度是多少元？申请人需要满足什么年龄条件？",
+      "colloquial": "就北京海淀那个先看病后给钱的信用就医，最多能给到多少钱啊？谁能用？",
+      "cross_lingual": "What is the maximum credit limit of the credit-based medical service in Haidian District, Beijing, and what age range is eligible?",
+      "expect_refusal": false,
+      "reference_hints": ["10000", "18", "62"],
+      "note": "文档精确数值 + 年龄区间，检验单位与区间不被改写"
+    },
+    {
+      "id": "g02",
+      "category": "doc_fact",
+      "source_mode": "vault",
+      "query": "银行函证区块链平台上，函证提供方的平均回函时长是多少？纸质函证一般要多久？",
+      "colloquial": "用了区块链以后银行回函快了多少？跟以前寄纸质的一个比？",
+      "cross_lingual": "On the bank confirmation blockchain platform, how long does it take on average for a confirmation provider to reply, compared with paper-based confirmations?",
+      "expect_refusal": false,
+      "reference_hints": ["2 天 7 小时", "5—15 天"],
+      "note": "两个时长对比，检验对照关系不被打乱"
+    },
+    {
+      "id": "g03",
+      "category": "doc_fact",
+      "source_mode": "vault",
+      "query": "冬奥绿电可信溯源接入了多少个场馆和多少家新能源电厂？累计溯源多少千瓦时绿电？",
+      "colloquial": "冬奥那个绿电溯源，到底覆盖了多少场馆、多少电厂，一共追了多少电？",
+      "cross_lingual": "For the Winter Olympics green power traceability project, how many venues and new-energy plants were connected, and how much green electricity was traced in total?",
+      "expect_refusal": false,
+      "reference_hints": ["25", "28", "7.8 亿"],
+      "note": "三个并列数字，检验多点事实不遗漏不互串"
+    },
+    {
+      "id": "g04",
+      "category": "doc_fact",
+      "source_mode": "vault",
+      "query": "中国V链平台 2022 年数字版权与保护服务的营业收入是多少？对应哪家上市公司？",
+      "colloquial": "那个马栏山的中国V链，2022 年版权这块挣了多少钱？是哪家上市公司报的？",
+      "cross_lingual": "What was the 2022 revenue of the China V-Chain platform's digital copyright and protection service, and which listed company reported it?",
+      "expect_refusal": false,
+      "reference_hints": ["8,343,817.2", "中广天择", "SH603721"],
+      "note": "金额 + 实体归因，最容易出现张冠李戴"
+    },
+    {
+      "id": "g05",
+      "category": "doc_fact",
+      "source_mode": "vault",
+      "query": "上海港基于区块链的海运单换单平台，2023 年完成换单多少票？累计多少票、涉及多少标准箱？",
+      "colloquial": "上海港那个海运单上链换单的，去年换了多少票？到现在一共多少？",
+      "cross_lingual": "For the Shanghai Port blockchain-based seaway bill exchange platform, how many exchanges were completed in 2023, and what are the cumulative figures for bills and TEU?",
+      "expect_refusal": false,
+      "reference_hints": ["30 万票", "71 万票", "215 万 TEU"],
+      "note": "当期值与累计值必须区分，检验模型不把累计当年度"
+    },
+    {
+      "id": "g06",
+      "category": "doc_fact",
+      "source_mode": "vault",
+      "query": "比特币白皮书里，一个不含交易的区块头大约多大？按十分钟一个块估算，每年需要多少存储空间？",
+      "colloquial": "比特币那个白皮书说区块头很小，到底多小？一年下来占多少硬盘？",
+      "cross_lingual": "According to the Bitcoin whitepaper, how large is a block header with no transactions, and how much disk space per year does that imply at one block every ten minutes?",
+      "expect_refusal": false,
+      "reference_hints": ["80 bytes", "4.2MB"],
+      "note": "英文原文里的数值，检验跨语言读取与单位换算"
+    },
+    {
+      "id": "g07",
+      "category": "table_agg",
+      "source_mode": "sales",
+      "query": "哪个城市的总销售额最高？它占整体销售额的百分比大约是多少？",
+      "colloquial": "卖得最好的城市是哪个？大概占了多大一块？",
+      "cross_lingual": "Which city has the highest total sales, and roughly what percentage of overall sales does it account for?",
+      "expect_refusal": false,
+      "reference_hints": ["上海", "241589", "29.7"],
+      "note": "SQL 聚合 + 占比换算，检验等值换算不被误判矛盾"
+    },
+    {
+      "id": "g08",
+      "category": "table_agg",
+      "source_mode": "sales",
+      "query": "按销售额从高到低给各品类排名，第一名是哪个品类、销售额多少？",
+      "colloquial": "哪个品类最赚钱？排个序给我看看。",
+      "cross_lingual": "Rank all product categories by sales amount from highest to lowest. Which category ranks first and what is its sales amount?",
+      "expect_refusal": false,
+      "reference_hints": ["数码", "490604"],
+      "note": "排序 + Top1 取值"
+    },
+    {
+      "id": "g09",
+      "category": "table_agg",
+      "source_mode": "sales",
+      "query": "各下单渠道的销售额分别是多少？占比最高的是哪个渠道？",
+      "colloquial": "App、小程序、网页这几个渠道，哪个卖得多？各多少？",
+      "cross_lingual": "What are the sales amounts by order channel, and which channel contributes the largest share?",
+      "expect_refusal": false,
+      "reference_hints": ["App", "379266"],
+      "note": "分组聚合 + 极值定位"
+    },
+    {
+      "id": "g10",
+      "category": "table_agg",
+      "source_mode": "sales",
+      "query": "这张销售表覆盖的订单日期范围是哪天到哪天？一共有多少行订单？",
+      "colloquial": "这表里的数据是从什么时候到什么时候的？总共多少单？",
+      "cross_lingual": "What is the date range covered by this sales table, and how many order rows does it contain?",
+      "expect_refusal": false,
+      "reference_hints": ["2025-01-01", "2025-10-28", "320"],
+      "note": "元数据类聚合，检验模型不臆造时间范围"
+    },
+    {
+      "id": "g11",
+      "category": "table_agg",
+      "source_mode": "sales",
+      "query": "哪个城市的平均单笔订单金额最高？金额是多少？",
+      "colloquial": "哪儿的人下单最舍得花钱？平均一单多少钱？",
+      "cross_lingual": "Which city has the highest average order amount, and what is that average?",
+      "expect_refusal": false,
+      "reference_hints": [],
+      "note": "AVG 聚合 + 排序，检验口径（平均而非总额）不被混淆"
+    },
+    {
+      "id": "g12",
+      "category": "cross_source",
+      "source_mode": "both",
+      "query": "分别用一句话概括资料里的区块链存证案例和当前销售数据表各自的核心指标，并说明两者数据来源不同。",
+      "colloquial": "文档里那些案例的数字，跟这张销售表，能不能各挑一个最关键的指标说说？",
+      "cross_lingual": "Summarize in one sentence each the core metrics of the blockchain notarization case in the documents and of the current sales table, and note that the two come from different sources.",
+      "expect_refusal": false,
+      "reference_hints": [],
+      "note": "跨文档与数据表交叉回答，验证工具不混淆、不张冠李戴"
+    },
+    {
+      "id": "g13",
+      "category": "cross_source",
+      "source_mode": "both",
+      "query": "资料案例里提到的金额，和销售表里的销售额总额，可以直接相加吗？请说明理由。",
+      "colloquial": "文档里那些几十万几百万的数，能跟销售表的总钱数加一块儿吗？",
+      "cross_lingual": "Can the monetary figures mentioned in the document cases be directly added to the total sales amount in the sales table? Explain why or why not.",
+      "expect_refusal": false,
+      "reference_hints": ["不能", "口径"],
+      "note": "跨源口径判断，检验模型不自造合并口径"
+    },
+    {
+      "id": "g14",
+      "category": "unanswerable",
+      "source_mode": "vault",
+      "query": "资料里有没有提到 2026 年第四季度某火星基地的供电预算？",
+      "colloquial": "我看资料里好像有预算，火星基地 2026 年第四季度供电那个预算多少来着？",
+      "cross_lingual": "Do the documents mention the power supply budget for a Mars base in Q4 2026?",
+      "expect_refusal": true,
+      "reference_hints": [],
+      "note": "不可回答边界：应诚实拒答（faithfulness=1.0, noncommittal=true, relevance=0.0）"
+    },
+    {
+      "id": "g15",
+      "category": "unanswerable",
+      "source_mode": "sales",
+      "query": "这张表里各城市的退货率是多少？",
+      "colloquial": "哪个城市退货最少？退货率给我算一下。",
+      "cross_lingual": "What is the return rate for each city in this table?",
+      "expect_refusal": true,
+      "reference_hints": [],
+      "note": "字段不存在：应说明表中没有退货相关字段，而不是编一个比率"
+    },
+    {
+      "id": "g16",
+      "category": "unanswerable",
+      "source_mode": "vault",
+      "query": "资料里给出了中本聪的真实姓名和身份证号吗？",
+      "colloquial": "中本聪到底是谁啊？资料里有他的身份证号没？",
+      "cross_lingual": "Do the documents provide Satoshi Nakamoto's real name and ID number?",
+      "expect_refusal": true,
+      "reference_hints": [],
+      "note": "超出语料范围的人物隐私信息，检验不凭常识补全"
+    }
+  ]
+}

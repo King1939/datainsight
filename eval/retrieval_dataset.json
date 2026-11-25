@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "description": "data/vault 3 份真实 PDF 的检索评测集（按 Doc.chunks 1-based 段号标注）",
+  "queries": [
+    {
+      "id": "q01",
+      "category": "exact",
+      "query": "闪电贷",
+      "relevant": [["区块链教程-廖雪峰-2025-06-16.pdf", 37]],
+      "note": "精确术语"
+    },
+    {
+      "id": "q02",
+      "category": "exact",
+      "query": "SeawayBill",
+      "relevant": [["中国区块链创新应用案例集.pdf", 66]],
+      "note": "精确英文专有名词"
+    },
+    {
+      "id": "q03",
+      "category": "exact",
+      "query": "交子",
+      "relevant": [["区块链教程-廖雪峰-2025-06-16.pdf", 2]],
+      "note": "精确历史货币概念"
+    },
+    {
+      "id": "q04",
+      "category": "exact",
+      "query": "中广天择",
+      "relevant": [["中国区块链创新应用案例集.pdf", 4]],
+      "note": "精确企业实体名称"
+    },
+    {
+      "id": "q05",
+      "category": "exact",
+      "query": "SCRIPT_VERIFY_LOW_S",
+      "relevant": [["区块链教程-廖雪峰-2025-06-16.pdf", 23]],
+      "note": "精确协议常量标识"
+    },
+    {
+      "id": "q06",
+      "category": "exact",
+      "query": "WETH",
+      "relevant": [
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 45],
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 46]
+      ],
+      "note": "精确代币合约名"
+    },
+    {
+      "id": "q07",
+      "category": "multi_term",
+      "query": "银行函证 回函 时长",
+      "relevant": [["中国区块链创新应用案例集.pdf", 8]],
+      "note": "多词共现：平均回函时长 2 天 7 小时"
+    },
+    {
+      "id": "q08",
+      "category": "multi_term",
+      "query": "冬奥 绿电 溯源",
+      "relevant": [
+        ["中国区块链创新应用案例集.pdf", 60],
+        ["中国区块链创新应用案例集.pdf", 61]
+      ],
+      "note": "多词组合：冬奥会绿电可信溯源"
+    },
+    {
+      "id": "q09",
+      "category": "multi_term",
+      "query": "茅台 流通 溯源",
+      "relevant": [
+        ["中国区块链创新应用案例集.pdf", 74],
+        ["中国区块链创新应用案例集.pdf", 75]
+      ],
+      "note": "多词组合：基于匠品链的茅台流通溯源系统"
+    },
+    {
+      "id": "q10",
+      "category": "multi_term",
+      "query": "虚拟电厂 TEE 竞价",
+      "relevant": [
+        ["中国区块链创新应用案例集.pdf", 68],
+        ["中国区块链创新应用案例集.pdf", 69]
+      ],
+      "note": "多词组合：虚拟电厂隐私计算 TEE 竞价"
+    },
+    {
+      "id": "q11",
+      "category": "multi_term",
+      "query": "海淀 信用就医 额度",
+      "relevant": [["中国区块链创新应用案例集.pdf", 42]],
+      "note": "多词组合：海淀信用就医最高授信额度 10000 元"
+    },
+    {
+      "id": "q12",
+      "category": "multi_term",
+      "query": "多重签名 Redeem Script",
+      "relevant": [
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 20],
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 21]
+      ],
+      "note": "中英混合多词组合"
+    },
+    {
+      "id": "q13",
+      "category": "semantic",
+      "query": "把比特币的密钥弄丢了账户里的资产还能找回吗",
+      "relevant": [
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 7],
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 8],
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 20]
+      ],
+      "note": "口语改写：私钥丢失后无法花费或找回"
+    },
+    {
+      "id": "q14",
+      "category": "semantic",
+      "query": "如果两个矿工同时挖出同一高度的新区块以太坊怎么处理被丢弃的那个",
+      "relevant": [
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 34],
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 35]
+      ],
+      "note": "自然语言描述叔块（Uncle Block）机制"
+    },
+    {
+      "id": "q15",
+      "category": "semantic",
+      "query": "早期代币转账代码里整数加减容易出什么安全隐患新版编译器怎么解决",
+      "relevant": [["区块链教程-廖雪峰-2025-06-16.pdf", 45]],
+      "note": "自然语言描述 ERC20 溢出漏洞与 Solidity 0.8"
+    },
+    {
+      "id": "q16",
+      "category": "semantic",
+      "query": "上海居民怎么查医院委托煎煮的中药进度和物流状态",
+      "relevant": [
+        ["中国区块链创新应用案例集.pdf", 46],
+        ["中国区块链创新应用案例集.pdf", 47]
+      ],
+      "note": "自然语言查询中药饮片代煎配送与随申办查询"
+    },
+    {
+      "id": "q17",
+      "category": "semantic",
+      "query": "横琴和澳门之间怎么在不直接传个人资料的前提下核验客户资产证明",
+      "relevant": [
+        ["中国区块链创新应用案例集.pdf", 16],
+        ["中国区块链创新应用案例集.pdf", 17]
+      ],
+      "note": "自然语言查询粤澳跨境数据验证平台链上哈希验证"
+    },
+    {
+      "id": "q18",
+      "category": "semantic",
+      "query": "法院和监狱之间怎么在线协同办理犯人减刑和假释案件",
+      "relevant": [
+        ["中国区块链创新应用案例集.pdf", 47],
+        ["中国区块链创新应用案例集.pdf", 48]
+      ],
+      "note": "自然语言查询减刑假释跨链融合管理"
+    },
+    {
+      "id": "q19",
+      "category": "semantic",
+      "query": "怎么防止黑客在交易未确认前偷偷修改签名改变交易哈希",
+      "relevant": [
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 23],
+        ["区块链教程-廖雪峰-2025-06-16.pdf", 24]
+      ],
+      "note": "自然语言描述交易延展性攻击与隔离见证"
+    },
+    {
+      "id": "q20",
+      "category": "cross_lingual",
+      "query": "不运行完整节点的情况下如何只靠区块头和默克尔路径验证一笔支付",
+      "relevant": [
+        ["bitcoin_en.pdf", 6],
+        ["bitcoin_en.pdf", 7]
+      ],
+      "note": "跨语言查询 Simplified Payment Verification"
+    },
+    {
+      "id": "q21",
+      "category": "cross_lingual",
+      "query": "如何通过修剪旧交易的默克尔树分支来回收和节省磁盘存储空间",
+      "relevant": [["bitcoin_en.pdf", 6]],
+      "note": "跨语言查询 Reclaiming Disk Space"
+    },
+    {
+      "id": "q22",
+      "category": "cross_lingual",
+      "query": "攻击者算力落后几个区块时追上诚实链的概率怎么用赌徒破产和泊松分布建模",
+      "relevant": [
+        ["bitcoin_en.pdf", 9],
+        ["bitcoin_en.pdf", 10]
+      ],
+      "note": "跨语言查询 Gambler's Ruin 与 Poisson 分布"
+    },
+    {
+      "id": "q23",
+      "category": "cross_lingual",
+      "query": "在所有交易公开广播的前提下比特币白皮书如何保护用户的交易隐私",
+      "relevant": [["bitcoin_en.pdf", 8]],
+      "note": "跨语言查询 10. Privacy"
+    },
+    {
+      "id": "q24",
+      "category": "cross_lingual",
+      "query": "当比特币发行量达到上限后矿工的挖矿奖励如何过渡到仅靠交易手续费",
+      "relevant": [
+        ["bitcoin_en.pdf", 5],
+        ["bitcoin_en.pdf", 6]
+      ],
+      "note": "跨语言查询 6. Incentive"
+    }
+  ]
+}

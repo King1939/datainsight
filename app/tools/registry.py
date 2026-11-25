@@ -65,6 +65,41 @@ class ToolRegistry:
     def get(self, name: str) -> Tool | None:
         return self._tools.get(name)
 
+    def register(
+        self,
+        name: str,
+        func: Callable[..., Any],
+        description: str,
+        parameters: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> Tool:
+        """动态注册一个外部工具（供 MCP 等适配器使用）。"""
+        if not overwrite and name in self._tools:
+            raise ValueError(f"工具名重复：{name}")
+        if not description:
+            raise ValueError(f"工具 {name} 缺少描述")
+        schema = dict(parameters) if isinstance(parameters, dict) else {}
+        schema.setdefault("type", "object")
+        if not isinstance(schema.get("properties"), dict):
+            schema["properties"] = {}
+        if not isinstance(schema.get("required"), list):
+            schema["required"] = []
+        registered = Tool(
+            name=name,
+            func=func,
+            description=description,
+            parameters=schema,
+        )
+        self._tools[name] = registered
+        return registered
+
+    def clone(self) -> ToolRegistry:
+        """浅拷贝当前注册表，用于按会话追加外挂工具而不污染全局表。"""
+        copy = ToolRegistry()
+        copy._tools = dict(self._tools)
+        return copy
+
     def describe(self) -> str:
         """给人看的概览：工具名 + 参数 + 描述，调 prompt 时对照用的。"""
         chunks = []

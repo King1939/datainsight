@@ -10,3 +10,4 @@ data/uploads/
 .DS_Store
 data/vault/
 data/chats/
+data/embedding.json
